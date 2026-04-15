@@ -1,7 +1,5 @@
 
-console.log("draw.js loaded");
-
-// --- deterministic seeded RNG ---
+// ---------- deterministic RNG ----------
 function createSeededRandom(seed) {
   let h = 2166136261 >>> 0;
   for (let i = 0; i < seed.length; i++) {
@@ -16,50 +14,56 @@ function createSeededRandom(seed) {
   };
 }
 
-// --- main draw ---
+// ---------- main ----------
 function startDraw() {
   const seed = document.getElementById("seed").value.trim();
-  const basketsText = document.getElementById("baskets").value;
-  const groupsCount = parseInt(document.getElementById("groups").value, 10);
+  const text = document.getElementById("input").value.trim();
 
-  if (!seed || groupsCount < 1) {
-    alert("Podaj seed i liczbę grup.");
+  if (!seed || !text) {
+    alert("Brak seeda lub danych.");
     return;
   }
 
   const random = createSeededRandom(seed);
-  const baskets = parseBaskets(basketsText);
-  const groups = Array.from({ length: groupsCount }, () => []);
+  const baskets = parseInput(text);
 
-  const log = document.getElementById("log");
-  const result = document.getElementById("result");
-  log.innerHTML = "";
-  result.textContent = "";
+  const basketCount = baskets.length;
+  const groupCount = Math.max(...baskets.map(b => b.players.length));
 
-  let steps = [];
-  let globalIndex = 0;
+  // uzupełnij koszyki slotami
+  let slotCounter = 1;
+  baskets.forEach(basket => {
+    while (basket.players.length < groupCount) {
+      basket.players.push({ name: `Slot ${slotCounter++}`, club: "-" });
+    }
+    shuffle(basket.players, random);
+  });
 
+  const groups = Array.from({ length: groupCount }, (_, i) => ({
+    id: i + 1,
+    players: []
+  }));
+
+  const steps = [];
   baskets.forEach((basket, basketIndex) => {
-    shuffle(basket, random);
-
-    basket.forEach(player => {
-      const groupIndex = globalIndex % groupsCount;
-      groups[groupIndex].push(player);
-
+    for (let g = 0; g < groupCount; g++) {
+      const p = basket.players[g];
+      groups[g].players.push(p);
       steps.push({
         basket: basketIndex + 1,
-        player,
-        group: groupIndex + 1
+        group: g + 1,
+        player: p
       });
-
-      globalIndex++;
-    });
+    }
   });
+
+  document.getElementById("log").innerHTML = "";
+  document.getElementById("result").textContent = "";
 
   playSteps(steps, groups);
 }
 
-// --- animated reveal ---
+// ---------- animation ----------
 function playSteps(steps, groups) {
   const log = document.getElementById("log");
   let i = 0;
@@ -69,45 +73,59 @@ function playSteps(steps, groups) {
       showResult(groups);
       return;
     }
-
-    const step = steps[i];
+    const s = steps[i];
     const div = document.createElement("div");
-    div.textContent = `Koszyk ${step.basket} → Grupa ${step.group}: ${step.player}`;
+    div.textContent =
+      `Koszyk ${s.basket} → Grupa ${s.group}: ${s.player.name} (${s.player.club})`;
     log.appendChild(div);
-
     i++;
-    setTimeout(next, 700);
+    setTimeout(next, 600);
   }
-
   next();
 }
 
-// --- final output ---
+// ---------- result ----------
 function showResult(groups) {
   const result = document.getElementById("result");
-  groups.forEach((group, i) => {
-    result.textContent += `Grupa ${i + 1}: ${group.join(", ")}\n`;
+  groups.forEach(g => {
+    result.textContent += `Grupa ${g.id}:\n`;
+    g.players.forEach(p => {
+      result.textContent += `  - ${p.name} (${p.club})\n`;
+    });
+    result.textContent += "\n";
   });
 }
 
-// --- helpers ---
-function parseBaskets(text) {
-  return text
-    .trim()
-    .split(/\n\s*\n/)
-    .map(block => {
-      const lines = block
-        .split("\n")
-        .map(l => l.trim())
-        .filter(Boolean);
-      return lines.slice(1); // skip "Koszyk X:"
-    })
-    .filter(basket => basket.length > 0);
+// ---------- parsing ----------
+function parseInput(text) {
+  const lines = text.split("\n");
+  const baskets = [];
+  let current = null;
+
+  lines.forEach(line => {
+    const l = line.trim();
+    if (!l) return;
+
+    if (l.startsWith("KOSZYK")) {
+      current = { players: [] };
+      baskets.push(current);
+      return;
+    }
+
+    const parts = l.split(/\t+/);
+    current.players.push({
+      name: parts[0],
+      club: parts[1] || "-"
+    });
+  });
+
+  return baskets;
 }
 
-function shuffle(array, random) {
-  for (let i = array.length - 1; i > 0; i--) {
+// ---------- shuffle ----------
+function shuffle(arr, random) {
+  for (let i = arr.length - 1; i > 0; i--) {
     const j = Math.floor(random() * (i + 1));
-    [array[i], array[j]] = [array[j], array[i]];
+    [arr[i], arr[j]] = [arr[j], arr[i]];
   }
 }
