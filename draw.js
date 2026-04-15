@@ -35,7 +35,6 @@ function parseInput(text) {
     const line = rawLine.trim();
     if (!line) continue;
 
-    // header: "KOSZYK 1", "KOSZYK 2"...
     if (/^KOSZYK\b/i.test(line)) {
       const num = (line.match(/\d+/) || ["?"])[0];
       current = { label: `Koszyk ${num}`, players: [] };
@@ -44,13 +43,11 @@ function parseInput(text) {
     }
 
     if (!current) {
-      // jeśli ktoś wklei bez "KOSZYK", to utwórz Koszyk 1
       current = { label: "Koszyk 1", players: [] };
       baskets.push(current);
     }
 
-    // Excel zwykle daje TAB między kolumnami.
-    // Czasem wklejane są wielokrotne spacje – obsłużmy oba przypadki.
+    // TAB z Excela albo 2+ spacje
     let name = line;
     let club = "-";
 
@@ -59,13 +56,11 @@ function parseInput(text) {
       name = parts[0] || "";
       club = parts[1] || "-";
     } else {
-      // split on 2+ spaces
       const parts = line.split(/\s{2,}/).map(x => x.trim()).filter(Boolean);
       if (parts.length >= 2) {
         name = parts[0];
         club = parts[1];
       } else {
-        // fallback: ostatni token jako klub, reszta jako nazwa (tylko jeśli ma sens)
         const tokens = line.split(/\s+/).filter(Boolean);
         if (tokens.length >= 2 && tokens[tokens.length - 1].length <= 5) {
           club = tokens.pop();
@@ -84,10 +79,18 @@ function parseInput(text) {
 // UI helpers: group labels
 // ======================
 function groupLabel(i) {
-  // i: 0-based
   const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
   if (i < alphabet.length) return `Grupa ${alphabet[i]}`;
   return `Grupa ${i + 1}`;
+}
+
+function escapeHtml(str) {
+  return String(str)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }
 
 // ======================
@@ -102,7 +105,7 @@ let STATE = {
 };
 
 // ======================
-// BUILD TABLE
+// BUILD TABLE: rows=baskets, cols=groups
 // ======================
 function buildTable(baskets, groupCount) {
   const wrap = document.getElementById("tableWrap");
@@ -110,7 +113,6 @@ function buildTable(baskets, groupCount) {
   const table = document.createElement("table");
   table.className = "resultTable";
 
-  // THEAD
   const thead = document.createElement("thead");
   const headRow = document.createElement("tr");
 
@@ -127,7 +129,6 @@ function buildTable(baskets, groupCount) {
   thead.appendChild(headRow);
   table.appendChild(thead);
 
-  // TBODY
   const tbody = document.createElement("tbody");
 
   baskets.forEach((b, bIdx) => {
@@ -154,57 +155,60 @@ function buildTable(baskets, groupCount) {
 }
 
 // ======================
-// MAIN: START
+// LOG
+// ======================
+function addLog(text) {
+  const log = document.getElementById("log");
+  const div = document.createElement("div");
+  div.textContent = text;
+  log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
+}
+
+// ======================
+// MAIN: START / RESET
 // ======================
 function startDraw() {
   const seed = document.getElementById("seed").value.trim();
   const text = document.getElementById("input").value.trim();
   const groupCount = parseInt(document.getElementById("groupCount").value, 10);
 
-  if (!seed) {
-    alert("Brak seeda.");
-    return;
-  }
-  if (!text) {
-    alert("Brak danych z Excela.");
-    return;
-  }
-  if (!groupCount || groupCount < 2) {
-    alert("Podaj poprawną liczbę grup (min 2).");
-    return;
-  }
+  if (!seed) return alert("Brak seeda.");
+  if (!text) return alert("Brak danych z Excela.");
+  if (!groupCount || groupCount < 2) return alert("Podaj poprawną liczbę grup (min 2).");
 
   const baskets = parseInput(text);
-  if (!baskets.length) {
-    alert("Nie wykryto żadnego koszyka (nagłówki 'KOSZYK X').");
-    return;
-  }
+  if (!baskets.length) return alert("Nie wykryto żadnego koszyka (nagłówki 'KOSZYK X').");
 
-  // Walidacja: jeśli w koszyku jest więcej osób niż grup — nie da się rozdać 'po 1 na grupę' dla tego koszyka
+  // WALIDACJA: koszyk nie może mieć > groupCount
   const tooBig = baskets
-    .map((b, idx) => ({ idx, label: b.label, n: b.players.length }))
+    .map(b => ({ label: b.label, n: b.players.length }))
     .filter(x => x.n > groupCount);
 
   if (tooBig.length) {
-    alert(
+    return alert(
       "Błąd: w niektórych koszykach jest więcej osób niż liczba grup.\n" +
-      tooBig.map(x => `${x.label}: ${x.n} > ${groupCount}`).join("\n") +
-      "\n\nAlbo zwiększ liczbę grup, albo zmniejsz koszyk."
+      tooBig.map(x => `${x.label}: ${x.n} > ${groupCount}`).join("\n")
     );
-    return;
   }
 
   const random = createSeededRandom(seed);
 
-  // shuffle per basket (deterministic)
+  // deterministycznie mieszamy KAŻDY koszyk
   baskets.forEach(b => shuffle(b.players, random));
 
-  // budujemy kroki: koszyk 1 -> grupa 1..N, potem koszyk 2 -> grupa 1..N, itd.
+  // kroki: koszyk 1 -> grupa 1..N, koszyk 2 -> grupa 1..N, itd.
   const steps = [];
   baskets.forEach((b, bIdx) => {
     for (let g = 0; g < groupCount; g++) {
-      const p = b.players[g] || { name: "—", club: "—" }; // puste miejsce w koszyku
-      steps.push({ basketIndex: bIdx, groupIndex: g, basketLabel: b.label, groupLabel: groupLabel(g), player: p });
+      const p = b.players[g] || { name: "—", club: "—" };
+      steps.push({
+        basketIndex: bIdx,
+        groupIndex: g,
+        basketLabel: b.label,
+        groupLabel: groupLabel(g),
+        player: p
+      });
     }
   });
 
@@ -212,24 +216,16 @@ function startDraw() {
   document.getElementById("log").innerHTML = "";
   buildTable(baskets, groupCount);
 
-  // state
-  STATE = {
-    steps,
-    idx: 0,
-    baskets,
-    groupCount,
-    started: true
-  };
+  STATE = { steps, idx: 0, baskets, groupCount, started: true };
 
-  // enable next
+  // enable Next
   document.getElementById("btnNext").disabled = false;
 
-  // log start
-  addLog(`Start losowania. Seed: "${seed}". Grupy: ${groupCount}. Koszyki: ${baskets.length}.`);
+  addLog(`Start losowania. Seed="${seed}". Grupy=${groupCount}. Koszyki=${baskets.length}.`);
 }
 
 // ======================
-// STEP: NEXT (1 click = 1 player)
+// STEP: 1 click = 1 person
 // ======================
 function nextStep() {
   if (!STATE.started) return;
@@ -242,7 +238,6 @@ function nextStep() {
 
   const s = STATE.steps[STATE.idx];
 
-  // update table cell
   const cell = document.getElementById(`cell-b${s.basketIndex}-g${s.groupIndex}`);
   if (cell) {
     const isEmpty = (s.player.name === "—" && s.player.club === "—");
@@ -254,7 +249,6 @@ function nextStep() {
     `;
   }
 
-  // log
   addLog(`${s.basketLabel} → ${s.groupLabel}: ${s.player.name} (${s.player.club})`);
 
   STATE.idx++;
@@ -264,26 +258,4 @@ function nextStep() {
     document.getElementById("btnNext").disabled = true;
   }
 }
-
-// ======================
-// LOG helper
-// ======================
-function addLog(text) {
-  const log = document.getElementById("log");
-  const div = document.createElement("div");
-  div.textContent = text;
-  log.appendChild(div);
-  log.scrollTop = log.scrollHeight;
-}
-
-// ======================
-// security / rendering
-// ======================
-function escapeHtml(str) {
-  return String(str)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
+``
