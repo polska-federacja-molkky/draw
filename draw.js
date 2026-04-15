@@ -197,7 +197,7 @@ function startDraw() {
   // deterministycznie mieszamy KAŻDY koszyk
   baskets.forEach(b => shuffle(b.players, random));
 
-  // kroki: koszyk 1 -> grupa 1..N, koszyk 2 -> grupa 1..N, itd.
+  // kroki: koszyk 1 -> grupa A.., koszyk 2 -> grupa A.., itd.
   const steps = [];
   baskets.forEach((b, bIdx) => {
     for (let g = 0; g < groupCount; g++) {
@@ -218,8 +218,10 @@ function startDraw() {
 
   STATE = { steps, idx: 0, baskets, groupCount, started: true };
 
-  // enable Next
+  // enable buttons
   document.getElementById("btnNext").disabled = false;
+  document.getElementById("btnExport").disabled = false;
+  document.getElementById("btnCopy").disabled = false;
 
   addLog(`Start losowania. Seed="${seed}". Grupy=${groupCount}. Koszyki=${baskets.length}.`);
 }
@@ -256,6 +258,79 @@ function nextStep() {
   if (STATE.idx >= STATE.steps.length) {
     addLog("Losowanie zakończone.");
     document.getElementById("btnNext").disabled = true;
+  }
+}
+
+// ======================
+// EXPORT: TSV (Excel-friendly)
+// ======================
+function buildExportMatrix() {
+  // Matrix: rows = baskets, cols = groups
+  const basketsCount = STATE.baskets.length;
+  const groupCount = STATE.groupCount;
+
+  const matrix = Array.from({ length: basketsCount }, () =>
+    Array.from({ length: groupCount }, () => "")
+  );
+
+  for (const s of STATE.steps) {
+    const label =
+      (s.player.name === "—" && s.player.club === "—")
+        ? ""
+        : `${s.player.name} (${s.player.club})`;
+    matrix[s.basketIndex][s.groupIndex] = label;
+  }
+
+  return matrix;
+}
+
+function matrixToTSV(matrix) {
+  const headers = Array.from({ length: STATE.groupCount }, (_, g) => groupLabel(g));
+  const rows = [];
+
+  rows.push(["", ...headers].join("\t")); // top-left empty
+  for (let b = 0; b < matrix.length; b++) {
+    const basketName = STATE.baskets[b].label;
+    rows.push([basketName, ...matrix[b]].join("\t"));
+  }
+
+  return rows.join("\n");
+}
+
+function downloadText(filename, text) {
+  const blob = new Blob([text], { type: "text/tab-separated-values;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function exportTSV() {
+  if (!STATE.started) return alert("Najpierw kliknij Start.");
+  const matrix = buildExportMatrix();
+  const tsv = matrixToTSV(matrix);
+
+  const stamp = new Date().toISOString().slice(0, 19).replaceAll(":", "-");
+  downloadText(`losowanie_${stamp}.tsv`, tsv);
+
+  addLog("Wyeksportowano TSV do pliku (Excel-friendly).");
+}
+
+async function copyTSV() {
+  if (!STATE.started) return alert("Najpierw kliknij Start.");
+  const matrix = buildExportMatrix();
+  const tsv = matrixToTSV(matrix);
+
+  try {
+    await navigator.clipboard.writeText(tsv);
+    addLog("Skopiowano TSV do schowka. Wklej w Excelu w komórkę A1.");
+  } catch (e) {
+    addLog("Kopiowanie do schowka zablokowane. Użyj Eksport (TSV).");
+    alert("Kopiowanie do schowka zablokowane przez przeglądarkę. Użyj przycisku Eksport (TSV).");
   }
 }
 ``
