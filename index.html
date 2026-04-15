@@ -11,29 +11,23 @@
 <h1>Losowanie grup – Polska Federacja Mölkky</h1>
 
 <p>
-  Narzędzie do transparentnego losowania grup turniejowych.
-  Losowanie jest deterministyczne (seed) i w pełni jawne.
+  Wklej dane z Excela (separator: <b>KOSZYK X</b>).<br>
+  Losowanie jest jawne, deterministyczne (seed) i odbywa się koszyk po koszyku.
 </p>
 
 <label>Seed losowania:</label>
 <input type="text" id="seed" value="PFM-Turniej-2026">
 
-<label>Koszyki (jeden koszyk = blok, jedna osoba = linia):</label>
-<textarea id="baskets">
-Koszyk 1:
-Ala
-Bartek
-Celina
-Marek
+<label>Dane z Excela:</label>
+<textarea id="input" rows="18">
+KOSZYK 1
+Marcin Henkelman    ZAK
+Makary Piwiński    DWU
 
-Koszyk 2:
-Daniel
-Ewa
-Filip
+KOSZYK 2
+Bartłomiej Henkelman    ZAK
+Kamil Sajkowski    ZAK
 </textarea>
-
-<label>Liczba grup:</label>
-<input type="number" id="groups" value="2" min="1">
 
 <button onclick="startDraw()">Losuj</button>
 
@@ -46,4 +40,3 @@ Filip
 <script src="draw.js"></script>
 </body>
 </html>
-``
