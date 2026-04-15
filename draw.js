@@ -76,7 +76,7 @@ function parseInput(text) {
 }
 
 // ======================
-// UI helpers: group labels
+// UI helpers
 // ======================
 function groupLabel(i) {
   const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -94,7 +94,7 @@ function escapeHtml(str) {
 }
 
 // ======================
-// GLOBAL STATE for step-by-step
+// GLOBAL STATE
 // ======================
 let STATE = {
   steps: [],
@@ -105,7 +105,7 @@ let STATE = {
 };
 
 // ======================
-// BUILD TABLE: rows=baskets, cols=groups
+// TABLE BUILD
 // ======================
 function buildTable(baskets, groupCount) {
   const wrap = document.getElementById("tableWrap");
@@ -224,6 +224,9 @@ function startDraw() {
   document.getElementById("btnCopy").disabled = false;
 
   addLog(`Start losowania. Seed="${seed}". Grupy=${groupCount}. Koszyki=${baskets.length}.`);
+
+  // autosave
+  saveState();
 }
 
 // ======================
@@ -235,6 +238,7 @@ function nextStep() {
   if (STATE.idx >= STATE.steps.length) {
     addLog("Losowanie zakończone.");
     document.getElementById("btnNext").disabled = true;
+    saveState();
     return;
   }
 
@@ -259,6 +263,9 @@ function nextStep() {
     addLog("Losowanie zakończone.");
     document.getElementById("btnNext").disabled = true;
   }
+
+  // autosave
+  saveState();
 }
 
 // ======================
@@ -333,4 +340,98 @@ async function copyTSV() {
     alert("Kopiowanie do schowka zablokowane przez przeglądarkę. Użyj przycisku Eksport (TSV).");
   }
 }
-``
+
+// ======================
+// PERSISTENCE: localStorage (Opcja A)
+// ======================
+const STORAGE_KEY = "pfm_draw_state_v1";
+
+function saveState() {
+  if (!STATE || !STATE.started) return;
+
+  const payload = {
+    version: 1,
+    savedAt: new Date().toISOString(),
+    seed: document.getElementById("seed")?.value ?? "",
+    groupCount: STATE.groupCount,
+    inputText: document.getElementById("input")?.value ?? "",
+    started: STATE.started,
+    idx: STATE.idx,
+    baskets: STATE.baskets,
+    steps: STATE.steps,
+    logHtml: document.getElementById("log")?.innerHTML ?? ""
+  };
+
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+}
+
+function loadState() {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (!raw) return false;
+
+  let payload;
+  try {
+    payload = JSON.parse(raw);
+  } catch {
+    return false;
+  }
+
+  if (!payload || payload.version !== 1 || !payload.started) return false;
+
+  // odtwórz inputy
+  const seedEl = document.getElementById("seed");
+  const groupEl = document.getElementById("groupCount");
+  const inputEl = document.getElementById("input");
+  if (seedEl) seedEl.value = payload.seed || "";
+  if (groupEl) groupEl.value = payload.groupCount || 10;
+  if (inputEl) inputEl.value = payload.inputText || "";
+
+  // odtwórz STATE
+  STATE = {
+    steps: payload.steps || [],
+    idx: payload.idx || 0,
+    baskets: payload.baskets || [],
+    groupCount: payload.groupCount || 10,
+    started: true
+  };
+
+  // odbuduj tabelę
+  buildTable(STATE.baskets, STATE.groupCount);
+
+  // wypełnij tabelę do kroku idx (wszystko co już “wylosowane”)
+  for (let i = 0; i < STATE.idx; i++) {
+    const s = STATE.steps[i];
+    const cell = document.getElementById(`cell-b${s.basketIndex}-g${s.groupIndex}`);
+    if (!cell) continue;
+    const isEmpty = (s.player.name === "—" && s.player.club === "—");
+    cell.innerHTML = `
+      <div class="cell ${isEmpty ? "empty" : "filled"}">
+        <span class="name">${escapeHtml(s.player.name)}</span>
+        <span class="club">${escapeHtml(s.player.club)}</span>
+      </div>
+    `;
+  }
+
+  // przywróć log
+  const logEl = document.getElementById("log");
+  if (logEl) logEl.innerHTML = payload.logHtml || "";
+
+  // ustaw przyciski
+  document.getElementById("btnNext").disabled = (STATE.idx >= STATE.steps.length);
+  document.getElementById("btnExport").disabled = false;
+  document.getElementById("btnCopy").disabled = false;
+
+  addLog(`Przywrócono stan po odświeżeniu (krok ${STATE.idx}/${STATE.steps.length}).`);
+
+  return true;
+}
+
+function clearSaved() {
+  localStorage.removeItem(STORAGE_KEY);
+  addLog("Wyczyszczono zapis localStorage (refresh nie będzie przywracał poprzedniego stanu).");
+}
+
+// auto-restore po refresh
+document.addEventListener("DOMContentLoaded", () => {
+  loadState();
+});
