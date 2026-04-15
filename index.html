@@ -13,7 +13,8 @@
 
 <p class="hint">
   Wklej dane z Excela. Format: nagłówki <b>KOSZYK X</b>, a wiersze: <b>Imię Nazwisko [TAB] Klub</b>.<br>
-  Losowanie jest deterministyczne (seed) i jawne. <b>1 klik = 1 zawodnik</b>.
+  Losowanie jest deterministyczne (seed) i jawne. <b>1 klik = 1 zawodnik</b>.<br>
+  Stan losowania zapisuje się lokalnie w przeglądarce (refresh nie czyści).
 </p>
 
 <div class="controls">
@@ -36,6 +37,7 @@
   <button id="btnNext" onclick="nextStep()" disabled>Następny zawodnik</button>
   <button id="btnExport" onclick="exportTSV()" disabled>Eksport (TSV)</button>
   <button id="btnCopy" onclick="copyTSV()" disabled>Kopiuj do schowka</button>
+  <button id="btnClearSaved" onclick="clearSaved()">Wyczyść zapis (local)</button>
 </div>
 
 <h2>Wynik (tabela)</h2>
@@ -47,4 +49,3 @@
 <script src="draw.js"></script>
 </body>
 </html>
-``
