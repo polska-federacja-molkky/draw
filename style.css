@@ -65,7 +65,7 @@ button:disabled {
 /* --- TABLE: responsive, full width --- */
 #tableWrap {
   max-width: 100%;
-  overflow-x: auto; /* awaryjnie na bardzo wąskich ekranach */
+  overflow-x: auto; /* awaryjne na bardzo wąskich ekranach */
 }
 
 .resultTable {
@@ -73,7 +73,7 @@ button:disabled {
   width: 100%;
   max-width: 100%;
   margin-top: 8px;
-  table-layout: fixed; /* KLUCZ: kolumny równe, nie rozpycha od długich nazw */
+  table-layout: fixed; /* KLUCZ: nie rozpycha się od długich nazw */
 }
 
 .resultTable th, .resultTable td {
@@ -110,10 +110,10 @@ button:disabled {
 .cell .name {
   font-weight: 600;
   flex: 1 1 auto;
-  min-width: 0;               /* pozwala działać ellipsis */
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;        /* jeśli wolisz zawijanie nazwisk → usuń te 2 linie + ellipsis */
+  white-space: nowrap;  /* jeśli wolisz zawijanie nazwisk: usuń tę linię + ellipsis */
 }
 
 .cell .club {
@@ -138,3 +138,4 @@ button:disabled {
   height: 220px;
   overflow: auto;
 }
+``
