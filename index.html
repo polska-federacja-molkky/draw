@@ -1,0 +1,48 @@
+
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <title>Losowanie grup – PFM</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <h1>Losowanie grup – Polska Federacja Mölkky</h1>
+
+  <p>
+    To narzędzie służy do transparentnego losowania grup turniejowych.
+    Algorytm jest jawny, a losowanie deterministyczne (seed).
+  </p>
+
+  <label>Seed losowania:</label><br>
+  <input type="text" id="seed" value="PFM-Turniej-2026"><br><br>
+
+  <label>Koszyki (jeden koszyk = blok, jedna osoba = linia):</label><br>
+  <textarea id="baskets" rows="10" cols="60">
+Koszyk 1:
+Ala
+Bartek
+Celina
+
+Koszyk 2:
+Daniel
+Ewa
+Filip
+  </textarea><br><br>
+
+  <label>Liczba grup:</label><br>
+  <input type="number" id="groups" value="2"><br><br>
+
+
+<button onclick="startDraw()">Losuj</button>
+
+<h2>Przebieg losowania</h2>
+<div id="log"></div>
+
+<h2>Wynik końcowy</h2>
+<pre id="result"></pre>
+
+
+  <script src="draw.js"></script>
+</body>
+</html>
