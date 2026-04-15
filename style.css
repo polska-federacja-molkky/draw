@@ -44,6 +44,7 @@ input[type="text"], input[type="number"] {
   margin: 14px 0 18px;
   display: flex;
   gap: 10px;
+  flex-wrap: wrap;
 }
 
 button {
@@ -61,22 +62,26 @@ button:disabled {
   cursor: not-allowed;
 }
 
+/* --- TABLE: responsive, full width --- */
 #tableWrap {
-  overflow-x: auto;
-  max-width: 1100px;
+  max-width: 100%;
+  overflow-x: auto; /* awaryjnie na bardzo wąskich ekranach */
 }
 
 .resultTable {
   border-collapse: collapse;
   width: 100%;
-  max-width: 1100px;
+  max-width: 100%;
   margin-top: 8px;
+  table-layout: fixed; /* KLUCZ: kolumny równe, nie rozpycha od długich nazw */
 }
 
 .resultTable th, .resultTable td {
   border: 1px solid #d0d7de;
-  padding: 8px;
+  padding: 6px 8px;
   vertical-align: top;
+  overflow: hidden;
+  word-break: break-word;
 }
 
 .resultTable thead th {
@@ -84,6 +89,7 @@ button:disabled {
   color: white;
   position: sticky;
   top: 0;
+  z-index: 1;
 }
 
 .resultTable tbody th {
@@ -93,14 +99,29 @@ button:disabled {
   white-space: nowrap;
 }
 
+/* komórka: nazwisko po lewej, klub po prawej */
 .cell {
   display: flex;
   justify-content: space-between;
   gap: 10px;
+  align-items: baseline;
 }
 
-.cell .name { font-weight: 600; }
-.cell .club { color: #333; opacity: .85; }
+.cell .name {
+  font-weight: 600;
+  flex: 1 1 auto;
+  min-width: 0;               /* pozwala działać ellipsis */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;        /* jeśli wolisz zawijanie nazwisk → usuń te 2 linie + ellipsis */
+}
+
+.cell .club {
+  color: #333;
+  opacity: .85;
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
 
 .cell.empty .name,
 .cell.empty .club {
@@ -109,7 +130,7 @@ button:disabled {
 }
 
 .log {
-  max-width: 1100px;
+  max-width: 100%;
   border: 1px solid #d0d7de;
   border-radius: 10px;
   padding: 10px;
@@ -117,4 +138,3 @@ button:disabled {
   height: 220px;
   overflow: auto;
 }
-``
