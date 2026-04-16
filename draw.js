@@ -500,3 +500,49 @@ function clearSaved() {
 document.addEventListener("DOMContentLoaded", () => {
   loadState();
 });
+
+
+unction copyResultsToClipboard() {
+  if (!STATE || !STATE.started) return;
+
+  const groups = STATE.groupCount;
+  const baskets = STATE.baskets;
+
+  // zbieramy wyniki per grupa
+  const perGroup = Array.from({ length: groups }, () => []);
+
+  STATE.steps.forEach(s => {
+    if (s.player && s.player.name && s.player.name !== "—") {
+      perGroup[s.groupIndex].push({
+        name: s.player.name,
+        club: s.player.club
+      });
+    }
+  });
+
+  // budujemy TSV blokowy (jak Excel)
+  const maxRows = Math.max(...perGroup.map(g => g.length));
+  let lines = [];
+
+  // nagłówki
+  let header = [];
+  for (let g = 0; g < groups; g++) {
+    header.push(`Grupa ${String.fromCharCode(65 + g)}`, "");
+  }
+  lines.push(header.join("\t"));
+
+  // wiersze
+  for (let r = 0; r < maxRows; r++) {
+    let row = [];
+    for (let g = 0; g < groups; g++) {
+      const p = perGroup[g][r];
+      row.push(p ? p.name : "");
+      row.push(p ? p.club : "");
+    }
+    lines.push(row.join("\t"));
+  }
+
+  const tsv = lines.join("\n");
+  navigator.clipboard.writeText(tsv);
+}
+
