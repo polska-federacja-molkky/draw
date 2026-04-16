@@ -1,8 +1,7 @@
 
 // ======================
 // deterministic RNG
-// ======================
-function createSeededRandom(seed) {
+// =================1a hash -> mulberry-ish stream// ======================
   let h = 2166136261 >>> 0;
   for (let i = 0; i < seed.length; i++) {
     h ^= seed.charCodeAt(i);
@@ -45,6 +44,7 @@ function excelLetters(index) {
 }
 
 function escapeHtml(str) {
+  // zabezpiecza przed HTML injection w innerHTML
   return String(str)
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
@@ -210,6 +210,42 @@ function addLog(text) {
 }
 
 // ======================
+// POOL RENDER (UI ONLY)  ✅ NOWE
+// ======================
+function renderPool() {
+  const wrap = document.getElementById("poolList");
+  if (!wrap) return;
+
+  if (!STATE || !STATE.started) {
+    wrap.innerHTML = "";
+    return;
+  }
+
+  const used = new Set(
+    STATE.steps
+      .slice(0, STATE.idx)
+      .map(s => `${s.basketIndex}|${s.player.name}|${s.player.club}`)
+  );
+
+  wrap.innerHTML = "";
+
+  STATE.baskets.forEach((b, bIdx) => {
+    const h = document.createElement("div");
+    h.className = "poolBasket";
+    h.textContent = b.label;
+    wrap.appendChild(h);
+
+    b.players.forEach(p => {
+      const key = `${bIdx}|${p.name}|${p.club}`;
+      const div = document.createElement("div");
+      div.className = "poolItem" + (used.has(key) ? " used" : "");
+      div.textContent = `${p.name} (${p.club})`;
+      wrap.appendChild(div);
+    });
+  });
+}
+
+// ======================
 // START / RESET
 // ======================
 function startDraw() {
@@ -289,6 +325,7 @@ function startDraw() {
   addLog(`Sól: ${salt}`);
   addLog(`Seed końcowy użyty do losowania (AUDYT): ${finalSeed}`);
 
+  renderPool();   // ✅ ważne: pokaż pulę od razu
   saveState();
 }
 
@@ -302,6 +339,7 @@ function nextStep() {
     addLog("Losowanie zakończone.");
     const btnNext = document.getElementById("btnNext");
     if (btnNext) btnNext.disabled = true;
+    renderPool(); // ✅ domknij UI
     saveState();
     return;
   }
@@ -329,6 +367,7 @@ function nextStep() {
     if (btnNext) btnNext.disabled = true;
   }
 
+  renderPool();   // ✅ ważne: wyszarzaj na każdym kroku
   saveState();
 }
 
@@ -548,14 +587,18 @@ function loadState() {
   if (STATE.salt) addLog(`Sól: ${STATE.salt}`);
   if (STATE.finalSeed) addLog(`Seed końcowy użyty do losowania (AUDYT): ${STATE.finalSeed}`);
 
+  renderPool(); // ✅ ważne: odtwórz pulę po refreshu
   return true;
 }
 
 function clearSaved() {
   localStorage.removeItem(STORAGE_KEY);
   addLog("Wyczyszczono zapis lokalny (localStorage).");
+  // UI zostaje – użytkownik może chcieć skopiować wynik z ekranu mimo czyszczenia
 }
 
 document.addEventListener("DOMContentLoaded", () => {
   loadState();
+  renderPool(); // jeśli brak stanu, po prostu wyczyści poolList
 });
+function createSeededRandom(seed) {
