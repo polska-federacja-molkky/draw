@@ -10,7 +10,6 @@
 <body>
 
 <div class="page">
-
   <section class="topGrid">
 
     <!-- LEWA: STEROWANIE -->
@@ -19,12 +18,11 @@
 
       <div class="explain">
         <p>
-          Losowanie korzysta z <b>seeda</b> (hasła losowania).
-          Te same dane i ten sam seed zawsze dają ten sam wynik.
+          Losowanie korzysta z <b>seeda</b> (hasła losowania). Te same dane i ten sam seed zawsze dają ten sam wynik.
         </p>
         <p>
           Domyślnie dodawana jest <b>losowa sól</b>, aby każde losowanie było inne.
-          Seed końcowy i sól są zapisane w logu, więc wynik można odtworzyć lub sprawdzić.
+          Seed końcowy i sól są zapisane w logu — wynik można odtworzyć (audit).
         </p>
       </div>
 
@@ -40,7 +38,7 @@
       <div class="buttons">
         <button onclick="startDraw()">Start / Reset</button>
         <button id="btnNext" onclick="nextStep()" disabled>Następny zawodnik</button>
-        <button id="btnCopy" onclick="copyResultsToClipboard()" disabled>Kopiuj wyniki</button>
+        <button id="btnCopy" onclick="copyResultsToClipboard()" disabled>Kopiuj wyniki (Excel)</button>
       </div>
 
       <details class="advanced">
@@ -52,7 +50,7 @@
         </label>
 
         <div class="buttons secondary">
-          <button onclick="exportTSV()" id="btnExport" disabled>Eksport TSV</button>
+          <button onclick="exportTSV()" id="btnExport" disabled>Eksport TSV (tabela koszyk×grupa)</button>
           <button onclick="exportLog()">Eksport logu</button>
           <button onclick="clearSaved()">Wyczyść zapis lokalny</button>
         </div>
@@ -71,7 +69,6 @@
     <h2>Wynik losowania</h2>
     <div id="tableWrap"></div>
   </section>
-
 </div>
 
 <script src="draw.js"></script>
