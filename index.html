@@ -8,7 +8,6 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-
 <div class="page">
   <section class="topGrid">
 
@@ -18,7 +17,8 @@
 
       <div class="explain">
         <p>
-          Losowanie korzysta z <b>seeda</b> (hasła losowania). Te same dane i ten sam seed zawsze dają ten sam wynik.
+          Losowanie korzysta z <b>seeda</b> (hasła losowania).
+          Te same dane i ten sam seed zawsze dają ten sam wynik.
         </p>
         <p>
           Domyślnie dodawana jest <b>losowa sól</b>, aby każde losowanie było inne.
@@ -50,17 +50,22 @@
         </label>
 
         <div class="buttons secondary">
-          <button onclick="exportTSV()" id="btnExport" disabled>Eksport TSV (tabela koszyk×grupa)</button>
+          <button onclick="exportTSV()" id="btnExport" disabled>
+            Eksport TSV (tabela koszyk×grupa)
+          </button>
           <button onclick="exportLog()">Eksport logu</button>
           <button onclick="clearSaved()">Wyczyść zapis lokalny</button>
         </div>
       </details>
     </div>
 
-    <!-- PRAWA: LOG -->
+    <!-- PRAWA: LOG + PULA -->
     <div class="logPanel">
       <h2>Przebieg losowania</h2>
       <div id="log" class="log"></div>
+
+      <h3 class="poolTitle">Pula do losowania</h3>
+      <div id="poolList" class="poolList"></div>
     </div>
 
   </section>
@@ -74,3 +79,4 @@
 <script src="draw.js"></script>
 </body>
 </html>
+``
