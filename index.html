@@ -5,104 +5,99 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Losowanie grup – Polska Federacja Mölkky</title>
-  <link rel="stylesheet" href="style.csse grup – Polska Federacja Mölkky</h1>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
 
-<p class="hint">
-  Wklej dane z Excela. Format: nagłówki <b>KOSZYK X</b>, a wiersze: <b>Imię Nazwisko [TAB] Klub</b>.<br>
-  Losowanie odbywa się koszyk po koszyku. <b>1 klik = 1 zawodnik</b>. Refresh nie kasuje stanu.
-</p>
-
-<details class="advanced">
-  <summary>Jak to działa? (proste wyjaśnienie)</summary>
-  <div class="advancedInner">
-    <p>
-      To losowanie działa jak bardzo dokładnie zaprogramowana kostka.
-      <b>Seed</b> to hasło startowe, które ustawia „jak będzie losować”.
+<div class="page">
+  <header class="header">
+    <h1>Losowanie grup – Polska Federacja Mölkky</h1>
+    <p class="hint">
+      Wklej dane z Excela: nagłówki <b>KOSZYK X</b>, a wiersze: <b>Imię Nazwisko [TAB] Klub</b>.
+      Losowanie odbywa się koszyk po koszyku. <b>1 klik = 1 zawodnik</b>.
+      Refresh nie kasuje stanu (zapis lokalny w przeglądarce).
     </p>
-    <ul>
-      <li>
-        Jeśli użyjemy <b>tego samego seeda</b> i tych samych danych, wynik będzie <b>zawsze identyczny</b>.
-      </li>
-      <li>
-        Domyślnie aplikacja bierze seed i dodaje do niego „losową sól” (np. aktualny czas),
-        więc <b>każde nowe losowanie jest inne</b>.
-      </li>
-      <li>
-        Seed, który faktycznie został użyty, jest <b>wypisany w logu</b>.
-        Dzięki temu losowanie jest jawne i możliwe do sprawdzenia.
-      </li>
-      <li>
-        Opcja „Użyj dokładnie seeda” wyłącza dodawanie soli — służy do <b>odtworzenia</b> lub <b>weryfikacji</b>.
-      </li>
-    </ul>
-    <p>
-      Losowanie działa koszyk po koszyku: najpierw Koszyk 1 jest tasowany i rozdzielany do grup,
-      potem Koszyk 2 itd. — po jednej osobie do każdej grupy.
-    </p>
-  </div>
-</details>
+  </header>
 
-<div class="controls">
-  <div class="field">
-    <label for="seed">Seed (hasło losowania):</label>
-    <div class="inlineRow">
-      <input type="text" id="seed" value="PFM-Turniej-2026">
+  <section class="card">
+    <div class="controls">
+      <div class="field">
+        <label for="seed">Seed (hasło losowania):</label>
+        <input type="text" id="seed" value="PFM-Turniej-2026">
+        <div class="smallHint">
+          Domyślnie każde losowanie jest inne (seed + „sól”).
+          Tryb „Użyj dokładnie seeda” pozwala odtworzyć identyczny wynik.
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="groupCount">Liczba grup:</label>
+        <input type="number" id="groupCount" value="10" min="2" max="30">
+      </div>
     </div>
-    <div class="smallHint">
-      Podpowiedź: dla tego samego seeda + tych samych danych wynik będzie taki sam (tryb „Użyj dokładnie seeda”).
-      Aktualnie użyty seed końcowy pojawia się w logu.
-    </div>
-  </div>
 
-  <div class="field">
-    <label for="groupCount">Liczba grup:</label>
-    <input type="number" id="groupCount" value="10" min="2" max="30">
-  </div>
-</div>
-
-<label for="input">Koszyki (wklej z Excela):</label>
-<textarea id="input" rows="18" placeholder="KOSZYK 1
+    <label for="input">Koszyki (wklej z Excela):</label>
+    <textarea id="input" rows="16" placeholder="KOSZYK 1
 Jan Kowalski    TST
 ...
 
 KOSZYK 2
 ..."></textarea>
 
-<div class="buttons primaryButtons">
-  <button id="btnStart" onclick="startDraw()">Start / Reset</button>
-  <button id="btnNext" onclick="nextStep()" disabled>Następny zawodnik</button>
-  <button id="btnCopy" onclick="copyTSV()" disabled>Kopiuj do schowka (wynik TSV)</button>
+    <div class="buttons primaryButtons">
+      <button id="btnStart" onclick="startDraw()">Start / Reset</button>
+      <button id="btnNext" onclick="nextStep()" disabled>Następny zawodnik</button>
+      <button id="btnCopy" onclick="copyTSV()" disabled>Kopiuj wynik do schowka (TSV)</button>
+    </div>
+
+    <details class="advanced">
+      <summary>Opcje zaawansowane</summary>
+      <div class="advancedInner">
+
+        <div class="checkboxRow">
+          <input type="checkbox" id="exactSeed">
+          <label for="exactSeed" style="margin:0;">
+            Użyj dokładnie seeda (tryb odtwarzania / weryfikacji)
+          </label>
+        </div>
+
+        <div class="buttons secondaryButtons">
+          <button id="btnExport" onclick="exportTSV()" disabled>Eksport wyniku do pliku (TSV)</button>
+          <button id="btnExportLog" onclick="exportLog()">Eksport logu losowania (TXT)</button>
+          <button id="btnClearSaved" onclick="clearSaved()">Wyczyść zapis lokalny</button>
+        </div>
+
+        <details class="explain">
+          <summary>Jak to działa? (proste wyjaśnienie)</summary>
+          <div class="explainInner">
+            <p>
+              To losowanie działa jak bardzo dokładnie zaprogramowana kostka.
+              <b>Seed</b> to hasło startowe, które ustawia „jak będzie losować”.
+            </p>
+            <ul>
+              <li>Ten sam seed + te same dane = <b>identyczny wynik</b>.</li>
+              <li>Domyślnie aplikacja dodaje do seeda „sól” (np. czas), więc <b>każdy Start jest inny</b>.</li>
+              <li>Seed faktycznie użyty do losowania jest wypisany w logu (audit).</li>
+              <li>Tryb „Użyj dokładnie seeda” służy do odtworzenia / weryfikacji.</li>
+            </ul>
+          </div>
+        </details>
+
+      </div>
+    </details>
+  </section>
+
+  <section class="card">
+    <h2>Wynik (tabela)</h2>
+    <div id="tableWrap"></div>
+  </section>
+
+  <section class="card">
+    <h2>Przebieg losowania</h2>
+    <div id="log" class="log"></div>
+  </section>
 </div>
 
-<details class="advanced">
-  <summary>Opcje zaawansowane</summary>
-  <div class="advancedInner">
-
-    <div class="checkboxRow">
-      <input type="checkbox" id="exactSeed">
-      <label for="exactSeed" style="margin:0;">
-        Użyj dokładnie seeda (tryb odtwarzania / weryfikacji)
-      </label>
-    </div>
-
-    <div class="buttons secondaryButtons" style="margin-top: 12px;">
-      <button id="btnExport" onclick="exportTSV()" disabled>Eksport wyników do pliku (TSV)</button>
-      <button id="btnExportLog" onclick="exportLog()">Eksport logu losowania (TXT)</button>
-      <button id="btnClearSaved" onclick="clearSaved()">Wyczyść zapis lokalny</button>
-    </div>
-
-    <div class="smallHint">
-      TSV jest najlepszy do Excela: wklej do A1 lub otwórz plik — kolumny ułożą się same.
-      Log TXT przydaje się jako „dowód losowania”.
-    </div>
-  </div>
-</details>
-
-<h2>Wynik (tabela)</h2>
-<div id="tableWrap"></div>
-
-<h2>Przebieg losowania</h2>
-<div id="log" class="log"></div>
-
-<script src="draw.jsody>
+<script src="draw.js"></script>
+</body>
 </html>
