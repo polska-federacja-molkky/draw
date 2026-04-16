@@ -4,57 +4,50 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Losowanie grup – Polska Federacja Mölkky</title>
-  style.css
+  <title>Losowanie grup – PFM</title>
+
+  <!-- ✅ TO JEST KLUCZOWE -->
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <div class="page">
 
-  <!-- TOP: INPUT + LOG -->
   <section class="topGrid">
 
-    <!-- LEFT: CONTROLS -->
     <div class="controlsPanel">
-
       <h1>Losowanie grup – PFM</h1>
 
       <div class="explain">
-        <b>Jak to działa (krótko):</b>
+        <b>Jak to działa (dla 10-latka):</b>
         <ul>
-          <li>Seed = hasło sterujące losowaniem</li>
-          <li>Ten sam seed + dane = identyczny wynik</li>
-          <li>Domyślnie dodajemy <b>losową sól</b>, żeby każdy start był inny</li>
-          <li>Sól i finalny seed są w logu – <b>da się to audytować</b></li>
+          <li>Seed = hasło do losowania</li>
+          <li>To samo hasło + dane = ten sam wynik</li>
+          <li>Normalnie dodajemy losową „sól”, żeby było inaczej</li>
+          <li>Seed i sól są w logu → da się sprawdzić uczciwość</li>
         </ul>
       </div>
 
-      <div class="row">
-        <label>Seed:</label>
-        <input type="text" id="seed" value="PFM-Turniej-2026">
-      </div>
+      <label>Seed:</label>
+      <input type="text" id="seed" value="PFM-Turniej-2026">
 
-      <div class="row short">
-        <label>Liczba grup:</label>
-        <input type="number" id="groupCount" value="10" min="2" max="30">
-      </div>
+      <label>Liczba grup:</label>
+      <input type="number" id="groupCount" value="10" min="2">
 
-      <label>Koszyki (wklej z Excela):</label>
-      <textarea id="input" rows="10"></textarea>
+      <label>Koszyki (Excel):</label>
+      <textarea id="input" rows="8"></textarea>
 
       <div class="buttons">
-        <button onclick="startDraw()">Start / Reset</button>
+        <button onclick="startDraw()">Start</button>
         <button onclick="nextStep()" id="btnNext" disabled>Następny</button>
-        <button onclick="copyTSV()" id="btnCopy" disabled>Kopiuj TSV</button>
       </div>
 
       <label class="checkbox">
         <input type="checkbox" id="exactSeed">
-        Użyj dokładnie seeda (tryb audytu)
+        Użyj dokładnie seeda (audyt)
       </label>
     </div>
 
-    <!-- RIGHT: LOG -->
     <div class="logPanel">
       <h2>Przebieg losowania</h2>
       <div id="log" class="log"></div>
@@ -62,7 +55,6 @@
 
   </section>
 
-  <!-- TABLE -->
   <section class="tableSection">
     <h2>Wynik losowania</h2>
     <div id="tableWrap"></div>
@@ -70,7 +62,7 @@
 
 </div>
 
-draw.jsscript>
+<!-- ✅ TO JEST KLUCZOWE -->
+<script src="draw.js"></script>
 </body>
 </html>
-``
