@@ -123,12 +123,13 @@ let STATE = {
 // ======================
 
 
+
 function buildTable(baskets, groupCount) {
   const wrap = document.getElementById("tableWrap");
   const table = document.createElement("table");
   table.className = "resultTable";
 
-  // === colgroup: stabilne szerokości ===
+  // colgroup = stabilne szerokości
   const colgroup = document.createElement("colgroup");
 
   const colKoszyk = document.createElement("col");
@@ -137,7 +138,7 @@ function buildTable(baskets, groupCount) {
 
   for (let i = 0; i < groupCount; i++) {
     const col = document.createElement("col");
-    col.style.width = "230px"; // ≈ "Agnieszka Wojciechowska"
+    col.style.width = "240px"; // dopasowane do „Agnieszka Wojciechowska”
     colgroup.appendChild(col);
   }
 
@@ -183,10 +184,10 @@ function buildTable(baskets, groupCount) {
   });
 
   table.appendChild(tbody);
-
   wrap.innerHTML = "";
   wrap.appendChild(table);
 }
+
 
 // ======================
 // LOG
