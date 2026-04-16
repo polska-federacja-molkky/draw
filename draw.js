@@ -122,13 +122,13 @@ let STATE = {
 // TABLE BUILD
 // ======================
 
+
 function buildTable(baskets, groupCount) {
   const wrap = document.getElementById("tableWrap");
-
   const table = document.createElement("table");
   table.className = "resultTable";
 
-  // === COLGROUP: STALE SZEROKOŚCI ===
+  // === colgroup: stabilne szerokości ===
   const colgroup = document.createElement("colgroup");
 
   const colKoszyk = document.createElement("col");
@@ -137,26 +137,26 @@ function buildTable(baskets, groupCount) {
 
   for (let i = 0; i < groupCount; i++) {
     const col = document.createElement("col");
-    col.style.width = "220px"; // STAŁA szerokość kolumn grup
+    col.style.width = "230px"; // ≈ "Agnieszka Wojciechowska"
     colgroup.appendChild(col);
   }
 
   table.appendChild(colgroup);
 
   const thead = document.createElement("thead");
-  const headRow = document.createElement("tr");
+  const trHead = document.createElement("tr");
 
   const th0 = document.createElement("th");
   th0.textContent = "Koszyk";
-  headRow.appendChild(th0);
+  trHead.appendChild(th0);
 
   for (let g = 0; g < groupCount; g++) {
     const th = document.createElement("th");
     th.textContent = groupLabel(g);
-    headRow.appendChild(th);
+    trHead.appendChild(th);
   }
 
-  thead.appendChild(headRow);
+  thead.appendChild(trHead);
   table.appendChild(thead);
 
   const tbody = document.createElement("tbody");
@@ -171,8 +171,8 @@ function buildTable(baskets, groupCount) {
     for (let g = 0; g < groupCount; g++) {
       const td = document.createElement("td");
       td.id = `cell-b${bIdx}-g${g}`;
-      td.innerHTML =
-        `<div class="cell">
+      td.innerHTML = `
+        <div class="cell">
           <span class="name">—</span>
           <span class="club">—</span>
         </div>`;
