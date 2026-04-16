@@ -121,11 +121,27 @@ let STATE = {
 // ======================
 // TABLE BUILD
 // ======================
+
 function buildTable(baskets, groupCount) {
   const wrap = document.getElementById("tableWrap");
 
   const table = document.createElement("table");
   table.className = "resultTable";
+
+  // === COLGROUP: STALE SZEROKOŚCI ===
+  const colgroup = document.createElement("colgroup");
+
+  const colKoszyk = document.createElement("col");
+  colKoszyk.style.width = "88px";
+  colgroup.appendChild(colKoszyk);
+
+  for (let i = 0; i < groupCount; i++) {
+    const col = document.createElement("col");
+    col.style.width = "220px"; // STAŁA szerokość kolumn grup
+    colgroup.appendChild(col);
+  }
+
+  table.appendChild(colgroup);
 
   const thead = document.createElement("thead");
   const headRow = document.createElement("tr");
@@ -155,7 +171,11 @@ function buildTable(baskets, groupCount) {
     for (let g = 0; g < groupCount; g++) {
       const td = document.createElement("td");
       td.id = `cell-b${bIdx}-g${g}`;
-      td.innerHTML = `<div class="cell empty"><span class="name">—</span><span class="club">—</span></div>`;
+      td.innerHTML =
+        `<div class="cell">
+          <span class="name">—</span>
+          <span class="club">—</span>
+        </div>`;
       tr.appendChild(td);
     }
 
