@@ -24,6 +24,35 @@ function shuffle(arr, random) {
 }
 
 // ======================
+// helpers
+// ======================
+function groupLabel(i) {
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  if (i < alphabet.length) return `Grupa ${alphabet[i]}`;
+  return `Grupa ${i + 1}`;
+}
+
+function escapeHtml(str) {
+  return String(str)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function cryptoRandomInt() {
+  // lepsze niż Math.random (ale z fallbackiem)
+  try {
+    const a = new Uint32Array(1);
+    crypto.getRandomValues(a);
+    return a[0];
+  } catch {
+    return Math.floor(Math.random() * 1e9);
+  }
+}
+
+// ======================
 // parsing excel paste
 // ======================
 function parseInput(text) {
@@ -73,24 +102,6 @@ function parseInput(text) {
   }
 
   return baskets;
-}
-
-// ======================
-// UI helpers
-// ======================
-function groupLabel(i) {
-  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-  if (i < alphabet.length) return `Grupa ${alphabet[i]}`;
-  return `Grupa ${i + 1}`;
-}
-
-function escapeHtml(str) {
-  return String(str)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
 }
 
 // ======================
@@ -167,7 +178,7 @@ function addLog(text) {
 }
 
 // ======================
-// MAIN: START / RESET
+// START / RESET
 // ======================
 function startDraw() {
   const baseSeed = document.getElementById("seed").value.trim();
@@ -181,7 +192,7 @@ function startDraw() {
   const baskets = parseInput(text);
   if (!baskets.length) return alert("Nie wykryto żadnego koszyka (nagłówki 'KOSZYK X').");
 
-  // WALIDACJA: koszyk nie może mieć > groupCount
+  // walidacja: koszyk nie może mieć > groupCount
   const tooBig = baskets
     .map(b => ({ label: b.label, n: b.players.length }))
     .filter(x => x.n > groupCount);
@@ -193,26 +204,22 @@ function startDraw() {
     );
   }
 
-  // ✅ exact seed checkbox: odtwarzanie / weryfikacja
   const useExact = document.getElementById("exactSeed")?.checked === true;
 
-  // ✅ final seed:
-  // - exact: baseSeed
-  // - normal: baseSeed + losowa sól (każdy start inny)
   let finalSeed;
   if (useExact) {
     finalSeed = baseSeed;
   } else {
-    const salt = `${Date.now()}-${Math.floor(Math.random() * 1e9)}`;
+    const salt = `${new Date().toISOString()}-${cryptoRandomInt()}`;
     finalSeed = `${baseSeed} | ${salt}`;
   }
 
   const random = createSeededRandom(finalSeed);
 
-  // deterministycznie (dla finalSeed) mieszamy KAŻDY koszyk
+  // tasujemy każdy koszyk deterministycznie dla finalSeed
   baskets.forEach(b => shuffle(b.players, random));
 
-  // kroki: koszyk 1 -> grupa A.., koszyk 2 -> grupa A.., itd.
+  // budujemy kroki: koszyk po koszyku, grupa A..Z
   const steps = [];
   baskets.forEach((b, bIdx) => {
     for (let g = 0; g < groupCount; g++) {
@@ -242,7 +249,6 @@ function startDraw() {
   addLog(`Tryb seeda: ${useExact ? "DOKŁADNY (odtwarzanie)" : "NORMALNY (losowa sól)"}`);
   addLog(`Seed użyty do losowania (AUDYT): ${finalSeed}`);
 
-  // autosave
   saveState();
 }
 
@@ -260,8 +266,8 @@ function nextStep() {
   }
 
   const s = STATE.steps[STATE.idx];
-
   const cell = document.getElementById(`cell-b${s.basketIndex}-g${s.groupIndex}`);
+
   if (cell) {
     const isEmpty = (s.player.name === "—" && s.player.club === "—");
     cell.innerHTML = `
@@ -288,7 +294,6 @@ function nextStep() {
 // EXPORT: TSV (Excel-friendly)
 // ======================
 function buildExportMatrix() {
-  // Matrix: rows = baskets, cols = groups
   const basketsCount = STATE.baskets.length;
   const groupCount = STATE.groupCount;
 
@@ -310,13 +315,12 @@ function buildExportMatrix() {
 function matrixToTSV(matrix) {
   const headers = Array.from({ length: STATE.groupCount }, (_, g) => groupLabel(g));
   const rows = [];
-
   rows.push(["", ...headers].join("\t"));
+
   for (let b = 0; b < matrix.length; b++) {
     const basketName = STATE.baskets[b].label;
     rows.push([basketName, ...matrix[b]].join("\t"));
   }
-
   return rows.join("\n");
 }
 
@@ -336,10 +340,8 @@ function exportTSV() {
   if (!STATE.started) return alert("Najpierw kliknij Start.");
   const matrix = buildExportMatrix();
   const tsv = matrixToTSV(matrix);
-
   const stamp = new Date().toISOString().slice(0, 19).replaceAll(":", "-");
   downloadText(`losowanie_${stamp}.tsv`, tsv, "text/tab-separated-values;charset=utf-8");
-
   addLog("Wyeksportowano TSV do pliku (Excel-friendly).");
 }
 
@@ -353,7 +355,7 @@ async function copyTSV() {
     addLog("Skopiowano TSV do schowka. Wklej w Excelu w komórkę A1.");
   } catch (e) {
     addLog("Kopiowanie do schowka zablokowane — użyj eksportu do pliku TSV.");
-    alert("Kopiowanie do schowka zablokowane przez przeglądarkę. Użyj 'Eksport wyników do pliku (TSV)'.");
+    alert("Kopiowanie do schowka zablokowane. Użyj 'Eksport wyników do pliku (TSV)'.");
   }
 }
 
@@ -371,22 +373,19 @@ function exportLog() {
 // ======================
 // PERSISTENCE: localStorage (refresh safe)
 // ======================
-const STORAGE_KEY = "pfm_draw_state_v3";
+const STORAGE_KEY = "pfm_draw_state_v4";
 
 function saveState() {
   if (!STATE || !STATE.started) return;
 
   const payload = {
-    version: 3,
+    version: 4,
     savedAt: new Date().toISOString(),
-
     baseSeed: document.getElementById("seed")?.value ?? "",
     exactSeed: document.getElementById("exactSeed")?.checked === true,
     finalSeed: STATE.finalSeed ?? "",
-
     groupCount: STATE.groupCount,
     inputText: document.getElementById("input")?.value ?? "",
-
     started: STATE.started,
     idx: STATE.idx,
     baskets: STATE.baskets,
@@ -408,9 +407,9 @@ function loadState() {
     return false;
   }
 
-  if (!payload || payload.version !== 3 || !payload.started) return false;
+  if (!payload || payload.version !== 4 || !payload.started) return false;
 
-  // odtwórz inputy
+  // restore inputs
   const seedEl = document.getElementById("seed");
   const groupEl = document.getElementById("groupCount");
   const inputEl = document.getElementById("input");
@@ -421,7 +420,7 @@ function loadState() {
   if (inputEl) inputEl.value = payload.inputText || "";
   if (exactEl) exactEl.checked = payload.exactSeed === true;
 
-  // odtwórz STATE
+  // restore state
   STATE = {
     steps: payload.steps || [],
     idx: payload.idx || 0,
@@ -431,10 +430,9 @@ function loadState() {
     finalSeed: payload.finalSeed || ""
   };
 
-  // odbuduj tabelę
+  // rebuild table + fill up to idx
   buildTable(STATE.baskets, STATE.groupCount);
 
-  // wypełnij tabelę do kroku idx
   for (let i = 0; i < STATE.idx; i++) {
     const s = STATE.steps[i];
     const cell = document.getElementById(`cell-b${s.basketIndex}-g${s.groupIndex}`);
@@ -448,11 +446,11 @@ function loadState() {
     `;
   }
 
-  // przywróć log
+  // restore log
   const logEl = document.getElementById("log");
   if (logEl) logEl.innerHTML = payload.logHtml || "";
 
-  // ustaw przyciski
+  // buttons
   document.getElementById("btnNext").disabled = (STATE.idx >= STATE.steps.length);
   document.getElementById("btnExport").disabled = false;
   document.getElementById("btnCopy").disabled = false;
@@ -471,3 +469,4 @@ function clearSaved() {
 document.addEventListener("DOMContentLoaded", () => {
   loadState();
 });
+``
