@@ -12,14 +12,18 @@
 <h1>Losowanie grup – Polska Federacja Mölkky</h1>
 
 <p class="hint">
-  Wklej dane z Excela. Format: nagłówki <b>KOSZYK X</b>, a wiersze: <b>Imię Nazwisko [TAB] Klub</b>.<br>
-  Losowanie jest deterministyczne (seed) i jawne. <b>1 klik = 1 zawodnik</b>.<br>
-  Stan losowania zapisuje się lokalnie w przeglądarce (refresh nie czyści).
+  <b>Jak działa losowanie (prosto):</b><br>
+  Zawodnicy są podzieleni na koszyki. Dla każdego koszyka aplikacja miesza kolejność osób, a potem rozdaje je po jednej osobie do kolejnych grup (A, B, C…).<br><br>
+
+  <b>Co to jest “seed”?</b><br>
+  Seed to kod-start, który ustawia “jak będzie mieszać”.
+  Jeśli wpiszesz <b>ten sam seed</b> i wkleisz <b>te same dane</b>, aplikacja zrobi <b>dokładnie to samo losowanie</b> (da się je powtórzyć i sprawdzić).<br>
+  Jeśli checkbox „Użyj dokładnie seeda” jest wyłączony, aplikacja doda do seeda losową końcówkę, więc każde kliknięcie Start da inny wynik, ale pokaże <b>seed końcowy</b> (audit).
 </p>
 
 <div class="controls">
   <div class="field">
-    <label for="seed">Seed losowania:</label>
+    <label for="seed">Seed (bazowy):</label>
     <input type="text" id="seed" value="PFM-Turniej-2026">
   </div>
 
@@ -30,15 +34,43 @@
 </div>
 
 <label for="input">Koszyki (jeden koszyk = blok, jedna osoba = linia):</label>
-<textarea id="input" rows="18"></textarea>
+<textarea id="input" rows="16"></textarea>
 
-<div class="buttons">
+<!-- Główne przyciski – minimalistycznie -->
+<div class="buttons primaryButtons">
   <button id="btnStart" onclick="startDraw()">Start / Reset</button>
   <button id="btnNext" onclick="nextStep()" disabled>Następny zawodnik</button>
-  <button id="btnExport" onclick="exportTSV()" disabled>Eksport (TSV)</button>
-  <button id="btnCopy" onclick="copyTSV()" disabled>Kopiuj do schowka</button>
-  <button id="btnClearSaved" onclick="clearSaved()">Wyczyść zapis (local)</button>
+  <button id="btnCopy" onclick="copyTSV()" disabled>Kopiuj wynik (TSV)</button>
 </div>
+
+<!-- Zaawansowane – schowane -->
+<details class="advanced">
+  <summary>Zaawansowane (seed, eksporty, zapis)</summary>
+
+  <div class="advancedInner">
+    <label class="checkboxRow">
+      <input type="checkbox" id="useExactSeed">
+      Użyj dokładnie seeda (powtórz wynik 1:1)
+    </label>
+
+    <div class="field">
+      <label for="finalSeedOut">Seed końcowy (audit):</label>
+      <div class="inlineRow">
+        <input type="text" id="finalSeedOut" readonly placeholder="Pojawi się po starcie losowania">
+        <button id="btnCopySeed" onclick="copyFinalSeed()" disabled>Kopiuj seed</button>
+      </div>
+      <div class="smallHint">
+        Jeśli chcesz odtworzyć wynik: wklej tutaj seed końcowy do pola “Seed (bazowy)”, zaznacz “Użyj dokładnie seeda” i kliknij Start.
+      </div>
+    </div>
+
+    <div class="buttons secondaryButtons">
+      <button id="btnExport" onclick="exportTSV()" disabled>Eksport wyniku (TSV do pliku)</button>
+      <button id="btnExportLog" onclick="exportLog()" disabled>Eksport logu (TXT)</button>
+      <button id="btnClearSaved" onclick="clearSaved()">Wyczyść zapis (local)</button>
+    </div>
+  </div>
+</details>
 
 <h2>Wynik (tabela)</h2>
 <div id="tableWrap"></div>
