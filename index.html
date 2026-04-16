@@ -1,36 +1,34 @@
 
 <!DOCTYPE html>
-<html lang="pl">
-<head>
+<html lang><html lang="pl">
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Losowanie grup – Polska Federacja Mölkky</title>
+  <title>Losowanie grup – PFM</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+
 <div class="page">
   <section class="topGrid">
 
-    <!-- LEWA: STEROWANIE -->
+    <!-- LEWA -->
     <div class="controlsPanel">
       <h1>Losowanie grup – PFM</h1>
 
       <div class="explain">
         <p>
-          Losowanie korzysta z <b>seeda</b> (hasła losowania).
-          Te same dane i ten sam seed zawsze dają ten sam wynik.
+          Losowanie korzysta z <b>seeda</b>. Te same dane i ten sam seed zawsze dają ten sam wynik.
         </p>
         <p>
-          Domyślnie dodawana jest <b>losowa sól</b>, aby każde losowanie było inne.
-          Seed końcowy i sól są zapisane w logu — wynik można odtworzyć (audit).
+          Domyślnie dodawana jest <b>losowa sól</b>. Seed i sól są zapisane w logu (audit).
         </p>
       </div>
 
       <label>Seed:</label>
-      <input type="text" id="seed" value="PFM-Turniej-2026">
+      <input id="seed" value="PFM-Turniej-2026">
 
       <label>Liczba grup:</label>
-      <input type="number" id="groupCount" value="10" min="2" max="30">
+      <input id="groupCount" type="number" value="10" min="2">
 
       <label>Koszyki (do wklejenia z Excela):</label>
       <textarea id="input" rows="9"></textarea>
@@ -41,30 +39,26 @@
         <button id="btnCopy" onclick="copyResultsToClipboard()" disabled>Kopiuj wyniki (Excel)</button>
       </div>
 
-      <details class="advanced">
+      <details>
         <summary>Opcje zaawansowane</summary>
-
-        <label class="checkbox">
+        <label>
           <input type="checkbox" id="exactSeed">
-          Użyj dokładnie seeda (tryb audytu / odtwarzania)
+          Użyj dokładnie seeda (audyt)
         </label>
-
         <div class="buttons secondary">
-          <button onclick="exportTSV()" id="btnExport" disabled>
-            Eksport TSV (tabela koszyk×grupa)
-          </button>
+          <button onclick="exportTSV()" id="btnExport" disabled>Eksport TSV</button>
           <button onclick="exportLog()">Eksport logu</button>
           <button onclick="clearSaved()">Wyczyść zapis lokalny</button>
         </div>
       </details>
     </div>
 
-    <!-- PRAWA: LOG + PULA -->
+    <!-- PRAWA -->
     <div class="logPanel">
       <h2>Przebieg losowania</h2>
       <div id="log" class="log"></div>
 
-      <h3 class="poolTitle">Pula do losowania</h3>
+      <h3>Pula do losowania</h3>
       <div id="poolList" class="poolList"></div>
     </div>
 
