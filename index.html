@@ -5,77 +5,72 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Losowanie grup – Polska Federacja Mölkky</title>
-  <link rel="stylesheet" href="style.css">
+  style.css
 </head>
 <body>
 
 <div class="page">
 
-  <div class="container">
-    <header class="header">
-      <h1>Losowanie grup – Polska Federacja Mölkky</h1>
-      <p class="hint">
-        Wklej dane z Excela. Format: <b>KOSZYK X</b>, wiersze: <b>Imię Nazwisko [TAB] Klub</b>.
-        <b>1 klik = 1 zawodnik</b>. Odświeżenie nie kasuje stanu.
-      </p>
-    </header>
+  <!-- TOP: INPUT + LOG -->
+  <section class="topGrid">
 
-    <section class="panel">
-      <div class="controls">
-        <div class="field">
-          <label for="seed">Seed:</label>
-          <input type="text" id="seed" value="PFM-Turniej-2026">
-        </div>
+    <!-- LEFT: CONTROLS -->
+    <div class="controlsPanel">
 
-        <div class="field small">
-          <label for="groupCount">Liczba grup:</label>
-          <input type="number" id="groupCount" value="10" min="2" max="30">
-        </div>
+      <h1>Losowanie grup – PFM</h1>
+
+      <div class="explain">
+        <b>Jak to działa (krótko):</b>
+        <ul>
+          <li>Seed = hasło sterujące losowaniem</li>
+          <li>Ten sam seed + dane = identyczny wynik</li>
+          <li>Domyślnie dodajemy <b>losową sól</b>, żeby każdy start był inny</li>
+          <li>Sól i finalny seed są w logu – <b>da się to audytować</b></li>
+        </ul>
       </div>
 
-      <label for="input">Koszyki (Excel):</label>
-      <textarea id="input" rows="14"></textarea>
-
-      <div class="buttons primaryButtons">
-        <button id="btnStart" onclick="startDraw()">Start / Reset</button>
-        <button id="btnNext" onclick="nextStep()" disabled>Następny zawodnik</button>
-        <button id="btnCopy" onclick="copyTSV()" disabled>Kopiuj TSV</button>
+      <div class="row">
+        <label>Seed:</label>
+        <input type="text" id="seed" value="PFM-Turniej-2026">
       </div>
 
-      <details class="advanced">
-        <summary>Opcje zaawansowane</summary>
-        <div class="advancedInner">
-          <label class="checkboxRow">
-            <input type="checkbox" id="exactSeed">
-            Użyj dokładnie seeda (audit)
-          </label>
+      <div class="row short">
+        <label>Liczba grup:</label>
+        <input type="number" id="groupCount" value="10" min="2" max="30">
+      </div>
 
-          <div class="buttons secondaryButtons">
-            <button id="btnExport" onclick="exportTSV()" disabled>Eksport TSV</button>
-            <button onclick="exportLog()">Eksport logu</button>
-            <button onclick="clearSaved()">Wyczyść zapis</button>
-          </div>
-        </div>
-      </details>
-    </section>
-  </div>
+      <label>Koszyki (wklej z Excela):</label>
+      <textarea id="input" rows="10"></textarea>
 
-  <!-- TABELA FULL WIDTH -->
+      <div class="buttons">
+        <button onclick="startDraw()">Start / Reset</button>
+        <button onclick="nextStep()" id="btnNext" disabled>Następny</button>
+        <button onclick="copyTSV()" id="btnCopy" disabled>Kopiuj TSV</button>
+      </div>
+
+      <label class="checkbox">
+        <input type="checkbox" id="exactSeed">
+        Użyj dokładnie seeda (tryb audytu)
+      </label>
+    </div>
+
+    <!-- RIGHT: LOG -->
+    <div class="logPanel">
+      <h2>Przebieg losowania</h2>
+      <div id="log" class="log"></div>
+    </div>
+
+  </section>
+
+  <!-- TABLE -->
   <section class="tableSection">
-    <h2>Wynik (tabela)</h2>
+    <h2>Wynik losowania</h2>
     <div id="tableWrap"></div>
   </section>
 
-  <div class="container">
-    <section>
-      <h2>Przebieg losowania</h2>
-      <div id="log" class="log"></div>
-    </section>
-  </div>
-
 </div>
 
-<script src="draw.js"></script>
+draw.jsscript>
 </body>
 </html>
 ``
