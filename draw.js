@@ -11,7 +11,7 @@ function createSeededRandom(seed) {
   return function () {
     h += 0x6D2B79F5;
     let t = Math.imul(h ^ (h >>> 15), 1 | h);
-    t ^= t + Math.imul(t ^ (h >>> 7), 61 | t);
+    t ^= t + Math.imul(t ^ (t >>> 7), 61 | t);
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
@@ -84,7 +84,6 @@ function groupLabel(i) {
   return `Grupa ${i + 1}`;
 }
 
-// ✅ FIX: prawidłowe escapowanie HTML (Twoje było podwójnie kodowane)
 function escapeHtml(str) {
   return String(str)
     .replaceAll("&", "&amp;")
@@ -103,7 +102,7 @@ let STATE = {
   baskets: [],
   groupCount: 0,
   started: false,
-  finalSeed: "" // ✅ NOWE: seed końcowy użyty do losowania
+  finalSeed: ""
 };
 
 // ======================
@@ -194,14 +193,23 @@ function startDraw() {
     );
   }
 
-  // ✅ KLUCZOWA ZMIANA: seed końcowy = baseSeed + losowa sól
-  // dzięki temu każdy START daje inne losowanie, ale nadal jest audytowalne
-  const salt = `${Date.now()}-${Math.floor(Math.random() * 1e9)}`;
-  const finalSeed = `${baseSeed} | ${salt}`;
+  // ✅ exact seed checkbox: odtwarzanie / weryfikacja
+  const useExact = document.getElementById("exactSeed")?.checked === true;
+
+  // ✅ final seed:
+  // - exact: baseSeed
+  // - normal: baseSeed + losowa sól (każdy start inny)
+  let finalSeed;
+  if (useExact) {
+    finalSeed = baseSeed;
+  } else {
+    const salt = `${Date.now()}-${Math.floor(Math.random() * 1e9)}`;
+    finalSeed = `${baseSeed} | ${salt}`;
+  }
 
   const random = createSeededRandom(finalSeed);
 
-  // deterministycznie (dla tego finalSeed) mieszamy KAŻDY koszyk
+  // deterministycznie (dla finalSeed) mieszamy KAŻDY koszyk
   baskets.forEach(b => shuffle(b.players, random));
 
   // kroki: koszyk 1 -> grupa A.., koszyk 2 -> grupa A.., itd.
@@ -230,8 +238,9 @@ function startDraw() {
   document.getElementById("btnExport").disabled = false;
   document.getElementById("btnCopy").disabled = false;
 
-  addLog(`Start losowania. Seed bazowy="${baseSeed}". Grupy=${groupCount}. Koszyki=${baskets.length}.`);
-  addLog(`Seed końcowy (AUDYT): ${finalSeed}`);
+  addLog(`Start losowania. Grupy=${groupCount}. Koszyki=${baskets.length}.`);
+  addLog(`Tryb seeda: ${useExact ? "DOKŁADNY (odtwarzanie)" : "NORMALNY (losowa sól)"}`);
+  addLog(`Seed użyty do losowania (AUDYT): ${finalSeed}`);
 
   // autosave
   saveState();
@@ -272,7 +281,6 @@ function nextStep() {
     document.getElementById("btnNext").disabled = true;
   }
 
-  // autosave
   saveState();
 }
 
@@ -303,7 +311,7 @@ function matrixToTSV(matrix) {
   const headers = Array.from({ length: STATE.groupCount }, (_, g) => groupLabel(g));
   const rows = [];
 
-  rows.push(["", ...headers].join("\t")); // top-left empty
+  rows.push(["", ...headers].join("\t"));
   for (let b = 0; b < matrix.length; b++) {
     const basketName = STATE.baskets[b].label;
     rows.push([basketName, ...matrix[b]].join("\t"));
@@ -312,8 +320,8 @@ function matrixToTSV(matrix) {
   return rows.join("\n");
 }
 
-function downloadText(filename, text) {
-  const blob = new Blob([text], { type: "text/tab-separated-values;charset=utf-8" });
+function downloadText(filename, text, mime = "text/plain;charset=utf-8") {
+  const blob = new Blob([text], { type: mime });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -330,7 +338,7 @@ function exportTSV() {
   const tsv = matrixToTSV(matrix);
 
   const stamp = new Date().toISOString().slice(0, 19).replaceAll(":", "-");
-  downloadText(`losowanie_${stamp}.tsv`, tsv);
+  downloadText(`losowanie_${stamp}.tsv`, tsv, "text/tab-separated-values;charset=utf-8");
 
   addLog("Wyeksportowano TSV do pliku (Excel-friendly).");
 }
@@ -344,25 +352,36 @@ async function copyTSV() {
     await navigator.clipboard.writeText(tsv);
     addLog("Skopiowano TSV do schowka. Wklej w Excelu w komórkę A1.");
   } catch (e) {
-    addLog("Kopiowanie do schowka zablokowane. Użyj Eksport (TSV).");
-    alert("Kopiowanie do schowka zablokowane przez przeglądarkę. Użyj przycisku Eksport (TSV).");
+    addLog("Kopiowanie do schowka zablokowane — użyj eksportu do pliku TSV.");
+    alert("Kopiowanie do schowka zablokowane przez przeglądarkę. Użyj 'Eksport wyników do pliku (TSV)'.");
   }
 }
 
 // ======================
-// PERSISTENCE: localStorage (Opcja A)
+// EXPORT LOG (TXT)
 // ======================
-// ✅ Zmieniamy KEY na v2, żeby nie ładować starego (deterministycznego) stanu
-const STORAGE_KEY = "pfm_draw_state_v2";
+function exportLog() {
+  const log = document.getElementById("log");
+  if (!log) return alert("Brak logu do eksportu.");
+  const text = log.innerText || "";
+  const stamp = new Date().toISOString().slice(0, 19).replaceAll(":", "-");
+  downloadText(`log_losowania_${stamp}.txt`, text, "text/plain;charset=utf-8");
+}
+
+// ======================
+// PERSISTENCE: localStorage (refresh safe)
+// ======================
+const STORAGE_KEY = "pfm_draw_state_v3";
 
 function saveState() {
   if (!STATE || !STATE.started) return;
 
   const payload = {
-    version: 2,
+    version: 3,
     savedAt: new Date().toISOString(),
 
     baseSeed: document.getElementById("seed")?.value ?? "",
+    exactSeed: document.getElementById("exactSeed")?.checked === true,
     finalSeed: STATE.finalSeed ?? "",
 
     groupCount: STATE.groupCount,
@@ -389,15 +408,18 @@ function loadState() {
     return false;
   }
 
-  if (!payload || payload.version !== 2 || !payload.started) return false;
+  if (!payload || payload.version !== 3 || !payload.started) return false;
 
   // odtwórz inputy
   const seedEl = document.getElementById("seed");
   const groupEl = document.getElementById("groupCount");
   const inputEl = document.getElementById("input");
+  const exactEl = document.getElementById("exactSeed");
+
   if (seedEl) seedEl.value = payload.baseSeed || "";
   if (groupEl) groupEl.value = payload.groupCount || 10;
   if (inputEl) inputEl.value = payload.inputText || "";
+  if (exactEl) exactEl.checked = payload.exactSeed === true;
 
   // odtwórz STATE
   STATE = {
@@ -436,14 +458,14 @@ function loadState() {
   document.getElementById("btnCopy").disabled = false;
 
   addLog(`Przywrócono stan po odświeżeniu (krok ${STATE.idx}/${STATE.steps.length}).`);
-  if (STATE.finalSeed) addLog(`Seed końcowy (AUDYT): ${STATE.finalSeed}`);
+  if (STATE.finalSeed) addLog(`Seed użyty do losowania (AUDYT): ${STATE.finalSeed}`);
 
   return true;
 }
 
 function clearSaved() {
   localStorage.removeItem(STORAGE_KEY);
-  addLog("Wyczyszczono zapis localStorage (refresh nie będzie przywracał poprzedniego stanu).");
+  addLog("Wyczyszczono zapis lokalny (localStorage).");
 }
 
 document.addEventListener("DOMContentLoaded", () => {
