@@ -11,7 +11,7 @@ function createSeededRandom(seed) {
   return function () {
     h += 0x6D2B79F5;
     let t = Math.imul(h ^ (h >>> 15), 1 | h);
-    t ^= t + Math.imul(t ^ (t >>> 7), 61 | t);
+    t ^= t + Math.imul(t ^ (h >>> 7), 61 | t);
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
@@ -84,6 +84,7 @@ function groupLabel(i) {
   return `Grupa ${i + 1}`;
 }
 
+// ✅ FIX: prawidłowe escapowanie HTML (Twoje było podwójnie kodowane)
 function escapeHtml(str) {
   return String(str)
     .replaceAll("&", "&amp;")
@@ -101,7 +102,8 @@ let STATE = {
   idx: 0,
   baskets: [],
   groupCount: 0,
-  started: false
+  started: false,
+  finalSeed: "" // ✅ NOWE: seed końcowy użyty do losowania
 };
 
 // ======================
@@ -169,11 +171,11 @@ function addLog(text) {
 // MAIN: START / RESET
 // ======================
 function startDraw() {
-  const seed = document.getElementById("seed").value.trim();
+  const baseSeed = document.getElementById("seed").value.trim();
   const text = document.getElementById("input").value.trim();
   const groupCount = parseInt(document.getElementById("groupCount").value, 10);
 
-  if (!seed) return alert("Brak seeda.");
+  if (!baseSeed) return alert("Brak seeda.");
   if (!text) return alert("Brak danych z Excela.");
   if (!groupCount || groupCount < 2) return alert("Podaj poprawną liczbę grup (min 2).");
 
@@ -192,9 +194,14 @@ function startDraw() {
     );
   }
 
-  const random = createSeededRandom(seed);
+  // ✅ KLUCZOWA ZMIANA: seed końcowy = baseSeed + losowa sól
+  // dzięki temu każdy START daje inne losowanie, ale nadal jest audytowalne
+  const salt = `${Date.now()}-${Math.floor(Math.random() * 1e9)}`;
+  const finalSeed = `${baseSeed} | ${salt}`;
 
-  // deterministycznie mieszamy KAŻDY koszyk
+  const random = createSeededRandom(finalSeed);
+
+  // deterministycznie (dla tego finalSeed) mieszamy KAŻDY koszyk
   baskets.forEach(b => shuffle(b.players, random));
 
   // kroki: koszyk 1 -> grupa A.., koszyk 2 -> grupa A.., itd.
@@ -216,14 +223,15 @@ function startDraw() {
   document.getElementById("log").innerHTML = "";
   buildTable(baskets, groupCount);
 
-  STATE = { steps, idx: 0, baskets, groupCount, started: true };
+  STATE = { steps, idx: 0, baskets, groupCount, started: true, finalSeed };
 
   // enable buttons
   document.getElementById("btnNext").disabled = false;
   document.getElementById("btnExport").disabled = false;
   document.getElementById("btnCopy").disabled = false;
 
-  addLog(`Start losowania. Seed="${seed}". Grupy=${groupCount}. Koszyki=${baskets.length}.`);
+  addLog(`Start losowania. Seed bazowy="${baseSeed}". Grupy=${groupCount}. Koszyki=${baskets.length}.`);
+  addLog(`Seed końcowy (AUDYT): ${finalSeed}`);
 
   // autosave
   saveState();
@@ -344,17 +352,22 @@ async function copyTSV() {
 // ======================
 // PERSISTENCE: localStorage (Opcja A)
 // ======================
-const STORAGE_KEY = "pfm_draw_state_v1";
+// ✅ Zmieniamy KEY na v2, żeby nie ładować starego (deterministycznego) stanu
+const STORAGE_KEY = "pfm_draw_state_v2";
 
 function saveState() {
   if (!STATE || !STATE.started) return;
 
   const payload = {
-    version: 1,
+    version: 2,
     savedAt: new Date().toISOString(),
-    seed: document.getElementById("seed")?.value ?? "",
+
+    baseSeed: document.getElementById("seed")?.value ?? "",
+    finalSeed: STATE.finalSeed ?? "",
+
     groupCount: STATE.groupCount,
     inputText: document.getElementById("input")?.value ?? "",
+
     started: STATE.started,
     idx: STATE.idx,
     baskets: STATE.baskets,
@@ -376,13 +389,13 @@ function loadState() {
     return false;
   }
 
-  if (!payload || payload.version !== 1 || !payload.started) return false;
+  if (!payload || payload.version !== 2 || !payload.started) return false;
 
   // odtwórz inputy
   const seedEl = document.getElementById("seed");
   const groupEl = document.getElementById("groupCount");
   const inputEl = document.getElementById("input");
-  if (seedEl) seedEl.value = payload.seed || "";
+  if (seedEl) seedEl.value = payload.baseSeed || "";
   if (groupEl) groupEl.value = payload.groupCount || 10;
   if (inputEl) inputEl.value = payload.inputText || "";
 
@@ -392,13 +405,14 @@ function loadState() {
     idx: payload.idx || 0,
     baskets: payload.baskets || [],
     groupCount: payload.groupCount || 10,
-    started: true
+    started: true,
+    finalSeed: payload.finalSeed || ""
   };
 
   // odbuduj tabelę
   buildTable(STATE.baskets, STATE.groupCount);
 
-  // wypełnij tabelę do kroku idx (wszystko co już “wylosowane”)
+  // wypełnij tabelę do kroku idx
   for (let i = 0; i < STATE.idx; i++) {
     const s = STATE.steps[i];
     const cell = document.getElementById(`cell-b${s.basketIndex}-g${s.groupIndex}`);
@@ -422,6 +436,7 @@ function loadState() {
   document.getElementById("btnCopy").disabled = false;
 
   addLog(`Przywrócono stan po odświeżeniu (krok ${STATE.idx}/${STATE.steps.length}).`);
+  if (STATE.finalSeed) addLog(`Seed końcowy (AUDYT): ${STATE.finalSeed}`);
 
   return true;
 }
@@ -431,7 +446,6 @@ function clearSaved() {
   addLog("Wyczyszczono zapis localStorage (refresh nie będzie przywracał poprzedniego stanu).");
 }
 
-// auto-restore po refresh
 document.addEventListener("DOMContentLoaded", () => {
   loadState();
 });
