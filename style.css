@@ -1,11 +1,13 @@
-
 body {
-  margin  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;  margin: 0;
+  margin: 0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
   background: #ffffff;
   color: #1b1b1b;
 }
 
-.page { padding: 16px; }
+.page {
+  padding: 16px;
+}
 
 .topGrid {
   display: grid;
@@ -32,14 +34,19 @@ body {
 label {
   font-weight: 700;
   font-size: 13px;
-  display: block;
   margin-top: 6px;
+  display: block;
 }
 
 input, textarea {
   width: 100%;
-  padding: 6px;
+  padding: 6px 8px;
+  font-size: 13px;
   box-sizing: border-box;
+}
+
+textarea {
+  font-family: ui-monospace, monospace;
 }
 
 .buttons {
@@ -54,61 +61,79 @@ button {
   border-radius: 8px;
   border: none;
   background: #106ebe;
-  color: #fff;
+  color: white;
   font-weight: 700;
   cursor: pointer;
 }
 
-button:disabled { background: #9aa6b2; }
+button:disabled {
+  background: #9aa6b2;
+}
 
-.buttons.secondary button { background: #2b6cb0; }
+.buttons.secondary button {
+  background: #2b6cb0;
+}
 
 .log {
-  height: 260px;
+  height: 360px;
   overflow-y: auto;
-  background: #fff;
+  font-size: 13px;
+  background: #ffffff;
   border: 1px solid #d0d7de;
   border-radius: 8px;
   padding: 8px;
-  font-size: 13px;
+  box-sizing: border-box;
 }
 
-.poolList {
-  margin-top: 6px;
-  max-height: 220px;
-  overflow-y: auto;
-  background: #fff;
-  border: 1px solid #d0d7de;
-  border-radius: 8px;
-  padding: 6px;
-  font-size: 13px;
+.tableSection {
+  margin-top: 16px;
 }
 
-.poolBasket {
-  font-weight: 700;
-  margin-top: 6px;
+#tableWrap {
+  width: 100%;
+  overflow-x: auto;
 }
-
-.poolItem.used { opacity: 0.35; }
 
 .resultTable {
   border-collapse: collapse;
   table-layout: fixed;
-  width: 100%;
+  min-width: 100%;
+  font-size: 15px;
 }
 
 .resultTable th,
 .resultTable td {
   border: 1px solid #d0d7de;
-  padding: 6px;
+  padding: 6px 8px;
+  vertical-align: top;
 }
 
 .resultTable thead th {
   background: #0b4f8a;
   color: #fff;
+  position: sticky;
+  top: 0;
 }
 
-.resultTable th:first-child {
+.resultTable thead th:first-child,
+.resultTable tbody th {
   width: 88px;
+  min-width: 88px;
+  max-width: 88px;
+  white-space: nowrap;
   background: #f3f6f9;
 }
+
+.cell .name {
+  font-weight: 800;
+  font-size: 16px;
+  line-height: 1.25;
+  word-break: break-word;
+}
+
+.cell .club {
+  font-size: 13px;
+  opacity: 0.8;
+  word-break: break-word;
+}
+``
