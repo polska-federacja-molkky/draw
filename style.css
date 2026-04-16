@@ -14,24 +14,17 @@ body {
 /* ===== TOP GRID ===== */
 .topGrid {
   display: grid;
-  grid-template-columns: 620px 1fr;
+  grid-template-columns: 560px 1fr;
   gap: 16px;
   align-items: start;
 }
 
-.controlsPanel {
-  border: 1px solid #d0d7de;
-  border-radius: 12px;
-  padding: 12px;
-  background: #f8fafc;
-}
-
+.controlsPanel,
 .logPanel {
   border: 1px solid #d0d7de;
   border-radius: 12px;
   padding: 12px;
-  background: #fafbfc;
-  height: 100%;
+  background: #f8fafc;
 }
 
 h1 {
@@ -50,20 +43,14 @@ h1 {
 label {
   font-weight: 700;
   font-size: 13px;
-}
-
-.row {
-  margin-bottom: 8px;
-}
-
-.row.short input {
-  width: 90px;
+  margin-top: 6px;
 }
 
 input[type="text"],
 input[type="number"] {
-  padding: 6px 8px;
   width: 100%;
+  padding: 6px 8px;
+  font-size: 13px;
 }
 
 textarea {
@@ -77,6 +64,7 @@ textarea {
   display: flex;
   gap: 8px;
   margin-top: 8px;
+  flex-wrap: wrap;
 }
 
 button {
@@ -93,10 +81,18 @@ button:disabled {
   background: #9aa6b2;
 }
 
+.buttons.secondary button {
+  background: #2b6cb0;
+}
+
 .checkbox {
-  margin-top: 6px;
+  margin-top: 8px;
   font-size: 13px;
   font-weight: 600;
+}
+
+.advanced {
+  margin-top: 10px;
 }
 
 /* ===== LOG ===== */
@@ -120,16 +116,15 @@ button:disabled {
   overflow-x: auto;
 }
 
-/* ✅ STABILNA TABELA */
+/* stabilna tabela */
 .resultTable {
   border-collapse: collapse;
   table-layout: fixed;
-  width: auto;
   min-width: 100%;
-  font-size: 14px;
+  font-size: 15px;
 }
 
-/* borders */
+/* colgroup kontroluje szerokości */
 .resultTable th,
 .resultTable td {
   border: 1px solid #d0d7de;
@@ -137,7 +132,6 @@ button:disabled {
   vertical-align: top;
 }
 
-/* header */
 .resultTable thead th {
   background: #0b4f8a;
   color: #fff;
@@ -145,7 +139,7 @@ button:disabled {
   top: 0;
 }
 
-/* kolumna koszyk */
+/* kolumna Koszyk */
 .resultTable thead th:first-child,
 .resultTable tbody th {
   width: 88px;
@@ -159,17 +153,17 @@ button:disabled {
 .cell {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
 }
 
 .cell .name {
   font-weight: 800;
-  font-size: 15px;
-  line-height: 1.2;
-  word-wrap: break-word;
+  font-size: 16px;
+  line-height: 1.25;
+  word-break: break-word;
 }
 
 .cell .club {
-  font-size: 12px;
+  font-size: 13px;
   opacity: 0.8;
 }
