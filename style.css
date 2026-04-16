@@ -1,5 +1,3 @@
-
-/* ===== GLOBAL ===== */
 body {
   margin: 0;
   font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
@@ -11,12 +9,10 @@ body {
   padding: 16px;
 }
 
-/* ===== TOP GRID ===== */
 .topGrid {
   display: grid;
   grid-template-columns: 560px 1fr;
   gap: 16px;
-  align-items: start;
 }
 
 .controlsPanel,
@@ -27,10 +23,6 @@ body {
   background: #f8fafc;
 }
 
-h1 {
-  margin-top: 0;
-}
-
 .explain {
   font-size: 13px;
   background: #eef4ff;
@@ -39,25 +31,20 @@ h1 {
   margin-bottom: 10px;
 }
 
-/* ===== FORM ===== */
 label {
   font-weight: 700;
   font-size: 13px;
   margin-top: 6px;
 }
 
-input[type="text"],
-input[type="number"] {
+input, textarea {
   width: 100%;
   padding: 6px 8px;
   font-size: 13px;
 }
 
 textarea {
-  width: 100%;
   font-family: ui-monospace, monospace;
-  font-size: 13px;
-  padding: 8px;
 }
 
 .buttons {
@@ -85,17 +72,6 @@ button:disabled {
   background: #2b6cb0;
 }
 
-.checkbox {
-  margin-top: 8px;
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.advanced {
-  margin-top: 10px;
-}
-
-/* ===== LOG ===== */
 .log {
   height: 360px;
   overflow-y: auto;
@@ -106,17 +82,6 @@ button:disabled {
   padding: 8px;
 }
 
-/* ===== TABLE ===== */
-.tableSection {
-  margin-top: 20px;
-}
-
-#tableWrap {
-  width: 100%;
-  overflow-x: auto;
-}
-
-/* stabilna tabela */
 .resultTable {
   border-collapse: collapse;
   table-layout: fixed;
@@ -124,43 +89,26 @@ button:disabled {
   font-size: 15px;
 }
 
-/* colgroup kontroluje szerokości */
 .resultTable th,
 .resultTable td {
   border: 1px solid #d0d7de;
   padding: 6px 8px;
-  vertical-align: top;
 }
 
 .resultTable thead th {
   background: #0b4f8a;
   color: #fff;
-  position: sticky;
-  top: 0;
 }
 
-/* kolumna Koszyk */
 .resultTable thead th:first-child,
 .resultTable tbody th {
   width: 88px;
-  min-width: 88px;
-  max-width: 88px;
-  white-space: nowrap;
   background: #f3f6f9;
-}
-
-/* komórki */
-.cell {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
 }
 
 .cell .name {
   font-weight: 800;
   font-size: 16px;
-  line-height: 1.25;
-  word-break: break-word;
 }
 
 .cell .club {
