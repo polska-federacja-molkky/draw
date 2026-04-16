@@ -32,8 +32,19 @@ function groupLabel(i) {
   return `Grupa ${i + 1}`;
 }
 
+// Excel-like column name: A..Z, AA..AZ, BA...
+function excelLetters(index) {
+  let n = index + 1;
+  let s = "";
+  while (n > 0) {
+    const r = (n - 1) % 26;
+    s = String.fromCharCode(65 + r) + s;
+    n = Math.floor((n - 1) / 26);
+  }
+  return s;
+}
+
 function escapeHtml(str) {
-  // poprawne escapowanie (bez podwójnego kodowania)
   return String(str)
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
@@ -119,13 +130,11 @@ let STATE = {
 };
 
 // ======================
-// TABLE BUILD
+// TABLE BUILD (fixed widths via colgroup)
 // ======================
-
-
-
 function buildTable(baskets, groupCount) {
   const wrap = document.getElementById("tableWrap");
+
   const table = document.createElement("table");
   table.className = "resultTable";
 
@@ -138,7 +147,7 @@ function buildTable(baskets, groupCount) {
 
   for (let i = 0; i < groupCount; i++) {
     const col = document.createElement("col");
-    col.style.width = "240px"; // dopasowane do „Agnieszka Wojciechowska”
+    col.style.width = "240px"; // default pod nazwisko ~ "Agnieszka Wojciechowska"
     colgroup.appendChild(col);
   }
 
@@ -184,10 +193,10 @@ function buildTable(baskets, groupCount) {
   });
 
   table.appendChild(tbody);
+
   wrap.innerHTML = "";
   wrap.appendChild(table);
 }
-
 
 // ======================
 // LOG
@@ -236,7 +245,7 @@ function startDraw() {
     salt = "(wyłączona)";
     finalSeed = baseSeed;
   } else {
-    // jawna sól, żeby było widać "co wylosowało"
+    // jawna sól, żeby było widać co wylosowało
     salt = `${new Date().toISOString()}-${cryptoRandomInt()}`;
     finalSeed = `${baseSeed} | ${salt}`;
   }
@@ -268,9 +277,12 @@ function startDraw() {
   STATE = { steps, idx: 0, baskets, groupCount, started: true, finalSeed, salt };
 
   // enable buttons
-  document.getElementById("btnNext").disabled = false;
-  document.getElementById("btnExport").disabled = false;
-  document.getElementById("btnCopy").disabled = false;
+  const btnNext = document.getElementById("btnNext");
+  const btnExport = document.getElementById("btnExport");
+  const btnCopy = document.getElementById("btnCopy");
+  if (btnNext) btnNext.disabled = false;
+  if (btnExport) btnExport.disabled = false;
+  if (btnCopy) btnCopy.disabled = false;
 
   addLog(`Start losowania. Grupy=${groupCount}. Koszyki=${baskets.length}.`);
   addLog(`Tryb seeda: ${useExact ? "DOKŁADNY (odtwarzanie)" : "NORMALNY (losowa sól)"}`);
@@ -288,7 +300,8 @@ function nextStep() {
 
   if (STATE.idx >= STATE.steps.length) {
     addLog("Losowanie zakończone.");
-    document.getElementById("btnNext").disabled = true;
+    const btnNext = document.getElementById("btnNext");
+    if (btnNext) btnNext.disabled = true;
     saveState();
     return;
   }
@@ -312,14 +325,15 @@ function nextStep() {
 
   if (STATE.idx >= STATE.steps.length) {
     addLog("Losowanie zakończone.");
-    document.getElementById("btnNext").disabled = true;
+    const btnNext = document.getElementById("btnNext");
+    if (btnNext) btnNext.disabled = true;
   }
 
   saveState();
 }
 
 // ======================
-// EXPORT: TSV (Excel-friendly)
+// EXPORT: TSV (plik, Excel-friendly – macierz koszyk x grupa)
 // ======================
 function buildExportMatrix() {
   const basketsCount = STATE.baskets.length;
@@ -333,7 +347,7 @@ function buildExportMatrix() {
     const label =
       (s.player.name === "—" && s.player.club === "—")
         ? ""
-        : `${s.player.name} (${s.player.club})`;
+        : `${s.player.name}\t${s.player.club}`; // rozdzielone w TSV
     matrix[s.basketIndex][s.groupIndex] = label;
   }
 
@@ -343,7 +357,7 @@ function buildExportMatrix() {
 function matrixToTSV(matrix) {
   const headers = Array.from({ length: STATE.groupCount }, (_, g) => groupLabel(g));
   const rows = [];
-  rows.push(["", ...headers].join("\t"));
+  rows.push(["Koszyk", ...headers].join("\t"));
 
   for (let b = 0; b < matrix.length; b++) {
     const basketName = STATE.baskets[b].label;
@@ -370,20 +384,61 @@ function exportTSV() {
   const tsv = matrixToTSV(matrix);
   const stamp = new Date().toISOString().slice(0, 19).replaceAll(":", "-");
   downloadText(`losowanie_${stamp}.tsv`, tsv, "text/tab-separated-values;charset=utf-8");
-  addLog("Wyeksportowano TSV do pliku (Excel-friendly).");
+  addLog("Wyeksportowano TSV do pliku.");
 }
 
-async function copyTSV() {
-  if (!STATE.started) return alert("Najpierw kliknij Start.");
-  const matrix = buildExportMatrix();
-  const tsv = matrixToTSV(matrix);
+// ======================
+// COPY RESULTS TO CLIPBOARD (format blokowy jak na screenie)
+// - 2 kolumny na grupę: ImięNazwisko | Klub
+// - + 1 pusta kolumna separatora między grupami (jak w Excelu)
+// ======================
+async function copyResultsToClipboard() {
+  if (!STATE || !STATE.started) return alert("Najpierw kliknij Start.");
+
+  const groups = STATE.groupCount;
+
+  // perGroup[g] = [{name, club}, ...] w kolejności losowania
+  const perGroup = Array.from({ length: groups }, () => []);
+
+  // bierzemy tylko realnych graczy (bez pustych)
+  for (const s of STATE.steps) {
+    if (s.player && s.player.name && s.player.name !== "—") {
+      perGroup[s.groupIndex].push({ name: s.player.name, club: s.player.club || "-" });
+    }
+  }
+
+  const maxRows = Math.max(0, ...perGroup.map(g => g.length));
+  const lines = [];
+
+  // nagłówek: Grupa A | (puste) | sep | Grupa B | (puste) | sep ...
+  const header = [];
+  for (let g = 0; g < groups; g++) {
+    header.push(`Grupa ${excelLetters(g)}`);
+    header.push(""); // klub header pusty
+    if (g !== groups - 1) header.push(""); // separator
+  }
+  lines.push(header.join("\t"));
+
+  // wiersze danych
+  for (let r = 0; r < maxRows; r++) {
+    const row = [];
+    for (let g = 0; g < groups; g++) {
+      const p = perGroup[g][r];
+      row.push(p ? p.name : "");
+      row.push(p ? p.club : "");
+      if (g !== groups - 1) row.push("");
+    }
+    lines.push(row.join("\t"));
+  }
+
+  const tsv = lines.join("\n");
 
   try {
     await navigator.clipboard.writeText(tsv);
-    addLog("Skopiowano TSV do schowka. Wklej w Excelu w komórkę A1.");
+    addLog("Skopiowano wyniki do schowka (Excel). Wklej w Excelu w A1 jako wartości.");
   } catch (e) {
-    addLog("Kopiowanie do schowka zablokowane — użyj eksportu do pliku TSV.");
-    alert("Kopiowanie do schowka zablokowane. Użyj 'Eksport wyników do pliku (TSV)'.");
+    addLog("Kopiowanie do schowka zablokowane — użyj eksportu TSV do pliku.");
+    alert("Kopiowanie do schowka zablokowane. Użyj 'Eksport TSV'.");
   }
 }
 
@@ -481,9 +536,13 @@ function loadState() {
   if (logEl) logEl.innerHTML = payload.logHtml || "";
 
   // buttons
-  document.getElementById("btnNext").disabled = (STATE.idx >= STATE.steps.length);
-  document.getElementById("btnExport").disabled = false;
-  document.getElementById("btnCopy").disabled = false;
+  const btnNext = document.getElementById("btnNext");
+  const btnExport = document.getElementById("btnExport");
+  const btnCopy = document.getElementById("btnCopy");
+
+  if (btnNext) btnNext.disabled = (STATE.idx >= STATE.steps.length);
+  if (btnExport) btnExport.disabled = false;
+  if (btnCopy) btnCopy.disabled = false;
 
   addLog(`Przywrócono stan po odświeżeniu (krok ${STATE.idx}/${STATE.steps.length}).`);
   if (STATE.salt) addLog(`Sól: ${STATE.salt}`);
@@ -500,49 +559,3 @@ function clearSaved() {
 document.addEventListener("DOMContentLoaded", () => {
   loadState();
 });
-
-
-unction copyResultsToClipboard() {
-  if (!STATE || !STATE.started) return;
-
-  const groups = STATE.groupCount;
-  const baskets = STATE.baskets;
-
-  // zbieramy wyniki per grupa
-  const perGroup = Array.from({ length: groups }, () => []);
-
-  STATE.steps.forEach(s => {
-    if (s.player && s.player.name && s.player.name !== "—") {
-      perGroup[s.groupIndex].push({
-        name: s.player.name,
-        club: s.player.club
-      });
-    }
-  });
-
-  // budujemy TSV blokowy (jak Excel)
-  const maxRows = Math.max(...perGroup.map(g => g.length));
-  let lines = [];
-
-  // nagłówki
-  let header = [];
-  for (let g = 0; g < groups; g++) {
-    header.push(`Grupa ${String.fromCharCode(65 + g)}`, "");
-  }
-  lines.push(header.join("\t"));
-
-  // wiersze
-  for (let r = 0; r < maxRows; r++) {
-    let row = [];
-    for (let g = 0; g < groups; g++) {
-      const p = perGroup[g][r];
-      row.push(p ? p.name : "");
-      row.push(p ? p.club : "");
-    }
-    lines.push(row.join("\t"));
-  }
-
-  const tsv = lines.join("\n");
-  navigator.clipboard.writeText(tsv);
-}
-
