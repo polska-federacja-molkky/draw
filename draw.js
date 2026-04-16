@@ -33,6 +33,7 @@ function groupLabel(i) {
 }
 
 function escapeHtml(str) {
+  // poprawne escapowanie (bez podwójnego kodowania)
   return String(str)
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
@@ -113,7 +114,8 @@ let STATE = {
   baskets: [],
   groupCount: 0,
   started: false,
-  finalSeed: ""
+  finalSeed: "",
+  salt: ""
 };
 
 // ======================
@@ -129,7 +131,7 @@ function buildTable(baskets, groupCount) {
   const headRow = document.createElement("tr");
 
   const th0 = document.createElement("th");
-  th0.textContent = "Koszyk \\ Grupa";
+  th0.textContent = "Koszyk";
   headRow.appendChild(th0);
 
   for (let g = 0; g < groupCount; g++) {
@@ -206,11 +208,15 @@ function startDraw() {
 
   const useExact = document.getElementById("exactSeed")?.checked === true;
 
-  let finalSeed;
+  let salt = "";
+  let finalSeed = "";
+
   if (useExact) {
+    salt = "(wyłączona)";
     finalSeed = baseSeed;
   } else {
-    const salt = `${new Date().toISOString()}-${cryptoRandomInt()}`;
+    // jawna sól, żeby było widać "co wylosowało"
+    salt = `${new Date().toISOString()}-${cryptoRandomInt()}`;
     finalSeed = `${baseSeed} | ${salt}`;
   }
 
@@ -238,7 +244,7 @@ function startDraw() {
   document.getElementById("log").innerHTML = "";
   buildTable(baskets, groupCount);
 
-  STATE = { steps, idx: 0, baskets, groupCount, started: true, finalSeed };
+  STATE = { steps, idx: 0, baskets, groupCount, started: true, finalSeed, salt };
 
   // enable buttons
   document.getElementById("btnNext").disabled = false;
@@ -247,7 +253,8 @@ function startDraw() {
 
   addLog(`Start losowania. Grupy=${groupCount}. Koszyki=${baskets.length}.`);
   addLog(`Tryb seeda: ${useExact ? "DOKŁADNY (odtwarzanie)" : "NORMALNY (losowa sól)"}`);
-  addLog(`Seed użyty do losowania (AUDYT): ${finalSeed}`);
+  addLog(`Sól: ${salt}`);
+  addLog(`Seed końcowy użyty do losowania (AUDYT): ${finalSeed}`);
 
   saveState();
 }
@@ -373,17 +380,18 @@ function exportLog() {
 // ======================
 // PERSISTENCE: localStorage (refresh safe)
 // ======================
-const STORAGE_KEY = "pfm_draw_state_v4";
+const STORAGE_KEY = "pfm_draw_state_v5";
 
 function saveState() {
   if (!STATE || !STATE.started) return;
 
   const payload = {
-    version: 4,
+    version: 5,
     savedAt: new Date().toISOString(),
     baseSeed: document.getElementById("seed")?.value ?? "",
     exactSeed: document.getElementById("exactSeed")?.checked === true,
     finalSeed: STATE.finalSeed ?? "",
+    salt: STATE.salt ?? "",
     groupCount: STATE.groupCount,
     inputText: document.getElementById("input")?.value ?? "",
     started: STATE.started,
@@ -407,7 +415,7 @@ function loadState() {
     return false;
   }
 
-  if (!payload || payload.version !== 4 || !payload.started) return false;
+  if (!payload || payload.version !== 5 || !payload.started) return false;
 
   // restore inputs
   const seedEl = document.getElementById("seed");
@@ -427,7 +435,8 @@ function loadState() {
     baskets: payload.baskets || [],
     groupCount: payload.groupCount || 10,
     started: true,
-    finalSeed: payload.finalSeed || ""
+    finalSeed: payload.finalSeed || "",
+    salt: payload.salt || ""
   };
 
   // rebuild table + fill up to idx
@@ -456,7 +465,8 @@ function loadState() {
   document.getElementById("btnCopy").disabled = false;
 
   addLog(`Przywrócono stan po odświeżeniu (krok ${STATE.idx}/${STATE.steps.length}).`);
-  if (STATE.finalSeed) addLog(`Seed użyty do losowania (AUDYT): ${STATE.finalSeed}`);
+  if (STATE.salt) addLog(`Sól: ${STATE.salt}`);
+  if (STATE.finalSeed) addLog(`Seed końcowy użyty do losowania (AUDYT): ${STATE.finalSeed}`);
 
   return true;
 }
@@ -469,4 +479,3 @@ function clearSaved() {
 document.addEventListener("DOMContentLoaded", () => {
   loadState();
 });
-``
