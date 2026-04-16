@@ -1,5 +1,6 @@
 
-/* ===== Global ===== *//* ===== {
+/* ===== Global ===== */
+body {
   margin: 0;
   font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
   background: #ffffff;
@@ -10,7 +11,7 @@
   width: 100%;
 }
 
-/* ===== Containers ===== */
+/* ===== Layout ===== */
 .container {
   max-width: 1120px;
   margin: 0 auto;
@@ -27,7 +28,7 @@ h1, h2 {
 }
 
 .hint {
-  font-size: 13px;
+  font-size: 14px;
   color: #444;
 }
 
@@ -42,7 +43,7 @@ h1, h2 {
 
 .controls {
   display: flex;
-  gap: 14px;
+  gap: 16px;
   flex-wrap: wrap;
 }
 
@@ -53,12 +54,12 @@ h1, h2 {
 }
 
 .field.small input {
-  width: 96px;
+  width: 90px;
 }
 
 input[type="text"] {
   padding: 8px 10px;
-  min-width: 300px;
+  min-width: 320px;
 }
 
 input[type="number"] {
@@ -96,7 +97,7 @@ button:disabled {
 
 /* ===== Advanced ===== */
 .advanced {
-  margin: 10px 0;
+  margin-top: 10px;
   border: 1px solid #d0d7de;
   border-radius: 12px;
   padding: 10px;
@@ -122,16 +123,17 @@ button:disabled {
 }
 
 .resultTable {
-  width: 100%;
+  width: auto;
+  min-width: 100%;
   border-collapse: collapse;
-  table-layout: auto;
-  font-size: 13px;
+  table-layout: fixed; /* KLUCZ: stałe kolumny */
+  font-size: 15px;     /* WIĘKSZY FONT */
 }
 
 .resultTable th,
 .resultTable td {
   border: 1px solid #d0d7de;
-  padding: 6px 8px;
+  padding: 8px 10px;
   vertical-align: top;
 }
 
@@ -143,31 +145,33 @@ button:disabled {
   top: 0;
 }
 
-/* Koszyk column – EXACT width like "Koszyk 8" */
+/* Koszyk – szerokość jak "Koszyk 8" */
 .resultTable thead th:first-child,
 .resultTable tbody th {
-  width: 90px;
-  min-width: 90px;
-  max-width: 110px;
+  width: 88px;
+  min-width: 88px;
+  max-width: 88px;
   white-space: nowrap;
   background: #f3f6f9;
 }
 
-/* Cells – NO truncation */
+/* Cell content */
 .cell {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
 }
 
 .cell .name {
   font-weight: 800;
+  font-size: 15px;
+  line-height: 1.25;
   white-space: normal;
 }
 
 .cell .club {
-  font-size: 12px;
-  opacity: 0.85;
+  font-size: 13px;
+  opacity: 0.8;
   white-space: normal;
 }
 
