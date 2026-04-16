@@ -1,222 +1,178 @@
 
-/* ===== Layout base ===== */
-body {
+/* ===== Global ===== *//* ===== {
+  margin: 0;
   font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-  margin: 18px;
-  color: #1b1b1b;
   background: #ffffff;
+  color: #1b1b1b;
 }
 
-.container {
+.page {
   width: 100%;
-  max-width: none; /* NIE BLOKUJEMY szerokości tabeli */
 }
 
-.header h1 { margin: 0 0 6px; }
-.hint { margin: 0 0 10px; color: #444; max-width: 1100px; font-size: 13px; line-height: 1.35; }
+/* ===== Containers ===== */
+.container {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 18px;
+}
 
-.section h2 { margin: 14px 0 8px; }
+.tableSection {
+  width: 100%;
+  padding: 18px;
+}
 
-/* ===== Panel sterowania ===== */
+h1, h2 {
+  margin-top: 0;
+}
+
+.hint {
+  font-size: 13px;
+  color: #444;
+}
+
+/* ===== Panel ===== */
 .panel {
-  max-width: 1100px;
-  padding: 12px 14px;
   border: 1px solid #d0d7de;
   border-radius: 12px;
   background: #f8fafc;
-  box-shadow: 0 1px 3px rgba(0,0,0,.05);
-  margin: 10px 0 14px;
-}
-
-label {
-  display: block;
-  margin: 8px 0 4px;
-  font-weight: 600;
-}
-
-textarea {
-  width: 100%;
-  max-width: 1100px;
-  box-sizing: border-box;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  padding: 10px;
-  font-size: 13px;
-  line-height: 1.3;
+  padding: 14px;
+  margin: 12px 0;
 }
 
 .controls {
   display: flex;
-  gap: 12px;
+  gap: 14px;
   flex-wrap: wrap;
-  margin: 6px 0 10px;
-  align-items: flex-end;
 }
 
 .field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
-.fieldSmall {
-  max-width: 160px;
+.field.small input {
+  width: 96px;
 }
 
 input[type="text"] {
   padding: 8px 10px;
-  min-width: 320px;
+  min-width: 300px;
 }
 
 input[type="number"] {
   padding: 8px 10px;
-  width: 110px;      /* mniejsze pole */
-  min-width: 110px;  /* mniejsze pole */
 }
 
-.smallHint {
+textarea {
+  width: 100%;
+  font-family: ui-monospace, monospace;
+  padding: 10px;
   font-size: 13px;
-  color: #555;
-  margin-top: 4px;
-  line-height: 1.35;
 }
 
+/* ===== Buttons ===== */
 .buttons {
-  margin: 10px 0 8px;
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
+  margin-top: 10px;
 }
 
 button {
-  padding: 10px 14px;
-  border: 0;
-  border-radius: 10px;
   background: #106ebe;
   color: white;
-  cursor: pointer;
+  border: 0;
+  border-radius: 10px;
+  padding: 10px 14px;
   font-weight: 700;
+  cursor: pointer;
 }
 
 button:disabled {
   background: #9aa6b2;
-  cursor: not-allowed;
 }
 
-/* Primary vs Secondary */
-.primaryButtons button { background: #106ebe; }
-.secondaryButtons button { background: #2b6cb0; }
-.secondaryButtons button#btnClearSaved { background: #6b7280; }
-
-/* --- Advanced section --- */
+/* ===== Advanced ===== */
 .advanced {
-  max-width: 1100px;
+  margin: 10px 0;
   border: 1px solid #d0d7de;
   border-radius: 12px;
-  padding: 8px 12px;
+  padding: 10px;
   background: #fafbfc;
-  margin: 10px 0 12px;
 }
 
 .advanced summary {
-  cursor: pointer;
   font-weight: 800;
-  color: #1f2937;
-  font-size: 14px;
+  cursor: pointer;
 }
-
-.advancedInner { margin-top: 10px; }
 
 .checkboxRow {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   align-items: center;
   font-weight: 700;
-  margin-top: 6px;
 }
 
-.checkboxRow input {
-  width: 18px;
-  height: 18px;
-}
-
-/* --- TABLE: responsive, FULL width, bez ucinania --- */
-.section.fullWidth {
-  max-width: none;
-}
-
-/* tableWrap ma iść na szerokość strony */
+/* ===== TABLE ===== */
 #tableWrap {
   width: 100%;
-  max-width: none;
   overflow-x: auto;
 }
 
 .resultTable {
-  border-collapse: collapse;
   width: 100%;
-  max-width: none;
-  margin-top: 8px;
-  table-layout: auto;   /* KLUCZ: nie fixed */
+  border-collapse: collapse;
+  table-layout: auto;
   font-size: 13px;
-  box-shadow: 0 1px 3px rgba(0,0,0,.06);
 }
 
-.resultTable th, .resultTable td {
+.resultTable th,
+.resultTable td {
   border: 1px solid #d0d7de;
   padding: 6px 8px;
   vertical-align: top;
-  overflow: visible;     /* KLUCZ: nie hidden */
-  word-break: break-word;
 }
 
+/* Header */
 .resultTable thead th {
   background: #0b4f8a;
   color: white;
   position: sticky;
   top: 0;
-  z-index: 1;
-  letter-spacing: 0.2px;
 }
 
-/* pierwsza kolumna: wąska jak "Koszyk 8" */
-.resultTable tbody th,
-.resultTable thead th:first-child {
-  background: #f3f6f9;
-  text-align: left;
-  width: 96px;
-  min-width: 96px;
+/* Koszyk column – EXACT width like "Koszyk 8" */
+.resultTable thead th:first-child,
+.resultTable tbody th {
+  width: 90px;
+  min-width: 90px;
   max-width: 110px;
   white-space: nowrap;
+  background: #f3f6f9;
 }
 
-/* komórka: imię i klub pod sobą (czytelnie i bez ellipsis) */
+/* Cells – NO truncation */
 .cell {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  align-items: flex-start;
 }
 
 .cell .name {
   font-weight: 800;
-  white-space: normal;   /* KLUCZ: zawijaj */
+  white-space: normal;
 }
 
 .cell .club {
-  color: #333;
-  opacity: .85;
   font-size: 12px;
-  white-space: normal;   /* też może się zawijać */
+  opacity: 0.85;
+  white-space: normal;
 }
 
-.cell.empty .name,
-.cell.empty .club {
-  color: #999;
-  font-weight: 400;
-}
-
+/* ===== LOG ===== */
 .log {
-  max-width: 1100px;
   border: 1px solid #d0d7de;
   border-radius: 12px;
   padding: 10px;
@@ -225,5 +181,3 @@ button:disabled {
   overflow: auto;
   font-size: 13px;
 }
-
-.footer { margin-top: 10px; }
