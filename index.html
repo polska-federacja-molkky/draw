@@ -10,6 +10,7 @@
 <body>
 
 <div class="container">
+
   <header class="header">
     <h1>Losowanie grup – Polska Federacja Mölkky</h1>
     <p class="hint">
@@ -18,7 +19,28 @@
     </p>
   </header>
 
-  <!-- PANEL STEROWANIA (żeby wyglądało jak narzędzie, nie formularz) -->
+  <!-- Jak to działa? przeniesione NA GÓRĘ -->
+  <details class="advanced" open>
+    <summary>Jak to działa? (proste wyjaśnienie)</summary>
+    <div class="advancedInner">
+      <p>
+        To losowanie działa jak bardzo dokładnie zaprogramowana kostka. <b>Seed</b> to hasło startowe,
+        które ustawia „jak będzie losować”.
+      </p>
+      <ul>
+        <li>Jeśli użyjemy <b>tego samego seeda</b> i tych samych danych, wynik będzie <b>zawsze identyczny</b>.</li>
+        <li>Domyślnie aplikacja dodaje do seeda „losową sól” (np. czas), więc <b>każde nowe losowanie jest inne</b>.</li>
+        <li>W logu widać osobno: <b>Sól</b> i <b>Seed końcowy</b> (audyt / dowód losowania).</li>
+        <li>Opcja „Użyj dokładnie seeda” wyłącza sól — służy do weryfikacji/odtworzenia.</li>
+      </ul>
+      <p>
+        Losowanie jest koszyk po koszyku: tasujemy koszyk i rozdajemy po 1 osobie do każdej grupy,
+        potem kolejny koszyk itd. (1 klik = 1 osoba).
+      </p>
+    </div>
+  </details>
+
+  <!-- PANEL STEROWANIA -->
   <section class="panel">
     <div class="controls">
       <div class="field">
@@ -29,7 +51,7 @@
         </div>
       </div>
 
-      <div class="field">
+      <div class="field fieldSmall">
         <label for="groupCount">Liczba grup:</label>
         <input type="number" id="groupCount" value="10" min="2" max="30">
       </div>
@@ -43,14 +65,14 @@ Makary Piwiński    DWU
 KOSZYK 2
 ..."></textarea>
 
-    <!-- TYLKO 3 PRZYCISKI NA WIERZCHU -->
+    <!-- 3 przyciski -->
     <div class="buttons primaryButtons">
       <button id="btnStart" onclick="startDraw()">Start / Reset</button>
       <button id="btnNext" onclick="nextStep()" disabled>Następny zawodnik</button>
       <button id="btnCopy" onclick="copyTSV()" disabled>Kopiuj do schowka (TSV)</button>
     </div>
 
-    <!-- ZAAWANSOWANE SCHOWANE -->
+    <!-- Advanced -->
     <details class="advanced">
       <summary>Opcje zaawansowane</summary>
       <div class="advancedInner">
@@ -74,7 +96,7 @@ KOSZYK 2
     </details>
   </section>
 
-  <section class="section">
+  <section class="section fullWidth">
     <h2>Wynik (tabela)</h2>
     <div id="tableWrap"></div>
   </section>
@@ -84,30 +106,10 @@ KOSZYK 2
     <div id="log" class="log"></div>
   </section>
 
-  <!-- Opis algorytmu na sam dół, zwijany, żeby nie przeszkadzał -->
-  <details class="advanced">
-    <summary>Jak to działa? (proste wyjaśnienie)</summary>
-    <div class="advancedInner">
-      <p>
-        To losowanie działa jak bardzo dokładnie zaprogramowana kostka. <b>Seed</b> to hasło startowe,
-        które ustawia „jak będzie losować”.
-      </p>
-      <ul>
-        <li>Jeśli użyjemy <b>tego samego seeda</b> i tych samych danych, wynik będzie <b>zawsze identyczny</b>.</li>
-        <li>Domyślnie aplikacja dodaje do seeda „losową sól” (np. czas), więc <b>każde nowe losowanie jest inne</b>.</li>
-        <li>Seed faktycznie użyty do losowania jest wypisany w logu — można losowanie sprawdzić/odtworzyć.</li>
-        <li>Opcja „Użyj dokładnie seeda” wyłącza sól — służy do weryfikacji.</li>
-      </ul>
-      <p>
-        Losowanie jest koszyk po koszyku: tasujemy koszyk i rozdajemy po 1 osobie do każdej grupy,
-        potem kolejny koszyk itd. (1 klik = 1 osoba).
-      </p>
-    </div>
-  </details>
-
   <footer class="footer smallHint">
     Tip: po aktualizacjach na GitHub Pages zrób twardy refresh: <b>Ctrl+Shift+R</b>.
   </footer>
+
 </div>
 
 <script src="draw.js"></script>
