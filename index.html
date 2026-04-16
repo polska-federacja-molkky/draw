@@ -1,5 +1,6 @@
 
-<!DOCTYPE html>="pl">
+<!DOCTYPE html>
+<html lang="pl">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
@@ -10,7 +11,6 @@
 
 <div class="page">
 
-  <!-- GÓRA: LOSOWANIE + LOG -->
   <section class="topGrid">
 
     <!-- LEWA: STEROWANIE -->
@@ -19,13 +19,12 @@
 
       <div class="explain">
         <p>
-          Losowanie wykorzystuje <b>seed</b> (hasło losowania).
-          Ten sam seed i te same dane zawsze dają ten sam wynik.
+          Losowanie korzysta z <b>seeda</b> (hasła losowania).
+          Te same dane i ten sam seed zawsze dają ten sam wynik.
         </p>
         <p>
-          Domyślnie do seeda dodawana jest <b>losowa sól</b>,
-          żeby każde losowanie było inne. Seed końcowy i sól są widoczne w logu,
-          dzięki czemu wynik można <b>odtworzyć lub zweryfikować</b>.
+          Domyślnie dodawana jest <b>losowa sól</b>, aby każde losowanie było inne.
+          Seed końcowy i sól są zapisane w logu, więc wynik można odtworzyć lub sprawdzić.
         </p>
       </div>
 
@@ -41,7 +40,7 @@
       <div class="buttons">
         <button onclick="startDraw()">Start / Reset</button>
         <button id="btnNext" onclick="nextStep()" disabled>Następny zawodnik</button>
-        <button id="btnCopy" onclick="copyTSV()" disabled>Kopiuj TSV</button>
+        <button id="btnCopy" onclick="copyResultsToClipboard()" disabled>Kopiuj wyniki</button>
       </div>
 
       <details class="advanced">
@@ -68,7 +67,6 @@
 
   </section>
 
-  <!-- TABELA -->
   <section class="tableSection">
     <h2>Wynik losowania</h2>
     <div id="tableWrap"></div>
