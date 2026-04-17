@@ -16,11 +16,18 @@ jobs:
       - name: Checkout branch
         uses: actions/checkout@v4
 
-      - name: Prepare branch-preview folder
+      - name: Prepare branch-preview folder (flat copy)
         run: |
           BRANCH_NAME=$(echo "${GITHUB_REF##*/}" | sed 's#[^a-zA-Z0-9_.-]#-#g')
           mkdir -p branch-preview/"$BRANCH_NAME"
-          cp ./*.html ./*.js ./*.css branch-preview/"$BRANCH_NAME"/
+          echo "Pliki w repo tuż po checkout:"
+          ls -l
+          echo "Kopiuję pliki:"
+          cp ./*.html ./*.js ./*.css branch-preview/"$BRANCH_NAME"/ || true
+          echo "Pliki w branch-preview/$BRANCH_NAME:"
+          ls -l branch-preview/"$BRANCH_NAME"
+          echo "Pliki w katalogu branch-preview:"
+          ls -l branch-preview
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
