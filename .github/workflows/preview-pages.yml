@@ -1,0 +1,30 @@
+name: Branch preview – GitHub Pages
+
+on:
+  push:
+    branches-ignore:
+      - main
+      - gh-pages
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+
+      - name: Prepare branch-preview folder (no recursion, just flat project)
+        run: |
+          BRANCH_NAME=$(echo "${GITHUB_REF##*/}" | sed 's#[^a-zA-Z0-9_.-]#-#g')
+          mkdir -p branch-preview/"$BRANCH_NAME"
+          cp ./*.html ./*.js ./*.css branch-preview/"$BRANCH_NAME"/
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./branch-preview
+          keep_files: true
