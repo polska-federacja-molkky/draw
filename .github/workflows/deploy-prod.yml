@@ -8,17 +8,12 @@ on:
 permissions:
   contents: write
 
-<<<<<<< test-preview
 concurrency:
   group: gh-pages
   cancel-in-progress: true
 
 jobs:
   deploy-prod:
-=======
-jobs:
-  deploy:
->>>>>>> main
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
