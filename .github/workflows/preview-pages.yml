@@ -16,7 +16,7 @@ jobs:
       - name: Checkout branch
         uses: actions/checkout@v4
 
-      - name: Prepare branch-preview folder (no recursion, just flat project)
+      - name: Prepare branch-preview folder
         run: |
           BRANCH_NAME=$(echo "${GITHUB_REF##*/}" | sed 's#[^a-zA-Z0-9_.-]#-#g')
           mkdir -p branch-preview/"$BRANCH_NAME"
