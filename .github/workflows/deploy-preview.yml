@@ -1,0 +1,35 @@
+name: Deploy PREVIEW – GitHub Pages
+
+on:
+  push:
+    branches:
+      - test-preview
+
+permissions:
+  contents: write
+
+concurrency:
+  group: gh-pages
+  cancel-in-progress: true
+
+jobs:
+  deploy-preview:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Prepare test-preview directory
+        run: |
+          rm -rf test-preview
+          mkdir -p test-preview
+          cp index.html draw.js style.css README.md test-preview/ || true
+          ls -la test-preview
+
+      - name: Deploy PREVIEW to GitHub Pages (subdirectory)
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./test-preview
+          destination_dir: test-preview
+          keep_files: true
