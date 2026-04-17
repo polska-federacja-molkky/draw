@@ -1,0 +1,84 @@
+
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Losowanie grup – Polska Federacja Mölkky</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="page">
+  <section class="topGrid">
+
+    <!-- LEWA: STEROWANIE -->
+    <div class="controlsPanel">
+      <h1>Losowanie grup – PFM</h1>
+
+      
+<div class="explain">
+  <p>
+    <b>Seed</b> to hasło losowania. 
+    Jeśli użyjemy <b>tych samych danych</b> i <b>tego samego seeda</b>, 
+    wynik losowania zawsze będzie taki sam.
+  </p>
+  <p>
+    Żeby każde losowanie było inne, system domyślnie dodaje <b>losową sól</b> — 
+    to jak dorzucenie małej, tajnej liczby do seeda.
+  </p>
+  <p>
+    Finalny seed (seed + sól) jest zapisywany w logu, 
+    więc losowanie można <b>później dokładnie odtworzyć</b> (tryb audytu).
+  </p>
+</div>
+
+
+      <label>Seed:</label>
+      <input type="text" id="seed" value="PFM-Turniej-2026">
+
+      <label>Liczba grup:</label>
+      <input type="number" id="groupCount" value="10" min="2" max="30">
+
+      <label>Koszyki (do wklejenia z Excela):</label>
+      <textarea id="input" rows="9"></textarea>
+
+      <div class="buttons">
+        <button onclick="startDraw()">Start / Reset</button>
+        <button id="btnNext" onclick="nextStep()" disabled>Następny zawodnik</button>
+        <button id="btnCopy" onclick="copyResultsToClipboard()" disabled>Kopiuj wyniki (Excel)</button>
+      </div>
+
+      <details class="advanced">
+        <summary>Opcje zaawansowane</summary>
+
+        <label class="checkbox">
+          <input type="checkbox" id="exactSeed">
+          Użyj dokładnie seeda (tryb audytu / odtwarzania)
+        </label>
+
+        <div class="buttons secondary">
+          <button onclick="exportTSV()" id="btnExport" disabled>Eksport TSV (tabela koszyk×grupa)</button>
+          <button onclick="exportLog()">Eksport logu</button>
+          <button onclick="clearSaved()">Wyczyść zapis lokalny</button>
+        </div>
+      </details>
+    </div>
+
+    <!-- PRAWA: LOG -->
+    <div class="logPanel">
+      <h2>Przebieg losowania</h2>
+      <div id="log" class="log"></div>
+    </div>
+
+  </section>
+
+  <section class="tableSection">
+    <h2>Wynik losowania</h2>
+    <div id="tableWrap"></div>
+  </section>
+</div>
+
+<script src="draw.js"></script>
+</body>
+</html>
