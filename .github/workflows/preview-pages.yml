@@ -1,0 +1,29 @@
+name: Branch preview – GitHub Pages
+
+on:
+  push:
+    branches-ignore:
+      - gh-pages
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+
+      - name: Prepare test-preview
+        run: |
+          mkdir -p test-preview
+          cp index.html draw.js style.css test-preview/
+          ls -l test-preview
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./
+          keep_files: true
