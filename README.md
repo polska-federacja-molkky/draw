@@ -28,5 +28,5 @@ To prosta aplikacja webowa służąca do przeprowadzania losowań grup podczas t
 
 ---
 
-Aplikacja działa na czystym HTML + JS + CSS, nie wymaga backendu ani instalacji narzędzi.
+Aplikacja działa na czystym HTML + JS + CSS, nie wymaga backendu ani instalacji narzędzi. 
  
