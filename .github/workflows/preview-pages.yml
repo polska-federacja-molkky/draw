@@ -15,17 +15,15 @@ jobs:
       - name: Checkout branch
         uses: actions/checkout@v4
 
-      - name: Prepare prod & test-preview
+      - name: Prepare test-preview
         run: |
-          # kopiujemy na produkcję
-          cp index.html draw.js style.css $GITHUB_WORKSPACE/
-          # kopiujemy do test-preview (dla obecnej gałęzi)
-          mkdir -p $GITHUB_WORKSPACE/test-preview
-          cp index.html draw.js style.css $GITHUB_WORKSPACE/test-preview/
+          mkdir -p test-preview
+          cp index.html draw.js style.css test-preview/
+          ls -l test-preview
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: $GITHUB_WORKSPACE
+          publish_dir: ./
           keep_files: true
