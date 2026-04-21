@@ -20,7 +20,7 @@ To prosta aplikacja webowa służąca do przeprowadzania losowań grup podczas t
 ---
 
 **Jak korzystać:**
-1. Wklej zawodników w odpowiednim formacie z Excela do pola "Koszyki".
+1. Wklej zawodników w odpowiednim formacie z Excela do pola "Koszyki" (w formacie przeklejonym z Excela turniejowego- kolumny P i Q w zakładce "Losowanie")
 2. Ustaw seed (np. nazwę wydarzenia).
 3. Wybierz liczbę grup.
 4. Kliknij „Start / Reset”, a następnie prowadź losowanie.
