@@ -146,7 +146,7 @@ function buildTable(baskets, groupCount) {
   const colgroup = document.createElement("colgroup");
 
   const colKoszyk = document.createElement("col");
-  colKoszyk.style.width = "88px";
+  colKoszyk.style.width = "52px";
   colgroup.appendChild(colKoszyk);
 
   for (let i = 0; i < groupCount; i++) {
