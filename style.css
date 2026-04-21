@@ -188,22 +188,45 @@ button:disabled {
 
 .resultTable thead th:first-child,
 .resultTable tbody th {
-  width: 88px;
-  min-width: 88px;
-  max-width: 88px;
+  width: 52px;
+  min-width: 52px;
+  max-width: 52px;
   white-space: nowrap;
   background: #f3f6f9;
+  text-align: center;
+  font-size: 12px;
+  color: #57606a;
 }
 
 .cell .name {
-  font-weight: 800;
-  font-size: 16px;
-  line-height: 1.25;
+  font-weight: 700;
+  font-size: 15px;
+  line-height: 1.2;
   word-break: break-word;
 }
 
 .cell .club {
-  font-size: 13px;
-  opacity: 0.8;
+  font-size: 11px;
+  opacity: 0.75;
   word-break: break-word;
+}
+
+.checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 400;
+  margin-top: 8px;
+  cursor: pointer;
+}
+
+.checkbox input[type="checkbox"] {
+  width: auto;
+  margin: 0;
+  flex-shrink: 0;
+  accent-color: #106ebe;
+}
+
+#btnNext {
+  min-width: 160px;
 }
