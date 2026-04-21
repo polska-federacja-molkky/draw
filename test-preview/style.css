@@ -188,9 +188,9 @@ button:disabled {
 
 .resultTable thead th:first-child,
 .resultTable tbody th {
-  width: 36px;
-  min-width: 36px;
-  max-width: 36px;
+  width: 52px;
+  min-width: 52px;
+  max-width: 52px;
   white-space: nowrap;
   background: #f3f6f9;
   text-align: center;
@@ -200,7 +200,7 @@ button:disabled {
 
 .cell .name {
   font-weight: 700;
-  font-size: 13px;
+  font-size: 15px;
   line-height: 1.2;
   word-break: break-word;
 }
@@ -225,4 +225,8 @@ button:disabled {
   margin: 0;
   flex-shrink: 0;
   accent-color: #106ebe;
+}
+
+#btnNext {
+  min-width: 160px;
 }
