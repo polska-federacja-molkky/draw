@@ -23,7 +23,23 @@ body {
   background: #f8fafc;
 }
 
-.explain {
+.appHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.pfmLogo {
+  height: 52px;
+  width: auto;
+}
+
+.appHeader h1 {
+  margin: 0;
+}
+
+
   font-size: 13px;
   background: #eef4ff;
   border-radius: 8px;
@@ -60,7 +76,7 @@ textarea {
 
 .modeOption {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 8px;
   flex: 1;
   background: #ffffff;
@@ -80,7 +96,7 @@ textarea {
 
 .modeOption input[type="radio"] {
   width: auto;
-  margin-top: 2px;
+  margin: 0;
   flex-shrink: 0;
   accent-color: #106ebe;
 }
