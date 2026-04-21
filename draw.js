@@ -179,7 +179,7 @@ function buildTable(baskets, groupCount) {
     const tr = document.createElement("tr");
 
     const th = document.createElement("th");
-    th.textContent = b.label;
+    th.textContent = String(bIdx + 1);
     tr.appendChild(th);
 
     for (let g = 0; g < groupCount; g++) {
@@ -211,6 +211,15 @@ function addLog(text) {
   div.textContent = text;
   log.appendChild(div);
   log.scrollTop = log.scrollHeight;
+}
+
+// ======================
+// MODE UI (button label)
+// ======================
+function updateModeUI() {
+  const teamMode = document.getElementById("modeTeam")?.checked === true;
+  const btnNext = document.getElementById("btnNext");
+  if (btnNext) btnNext.textContent = teamMode ? "Następna drużyna" : "Następny zawodnik";
 }
 
 // ======================
@@ -284,6 +293,7 @@ function startDraw() {
   if (btnCopy) btnCopy.disabled = false;
 
   const modeLabel = teamMode ? "DRUŻYNOWY" : "INDYWIDUALNY";
+  updateModeUI();
   addLog(`Start losowania. Tryb: ${modeLabel}. Grupy=${groupCount}. Koszyki=${baskets.length}.`);
   addLog(`Tryb seeda: ${useExact ? "DOKŁADNY (odtwarzanie)" : "NORMALNY (losowa sól)"}`);
   addLog(`Sól: ${salt}`);
@@ -514,6 +524,7 @@ function loadState() {
   if (modeTeamEl && modeSingleEl) {
     modeTeamEl.checked   = payload.teamMode === true;
     modeSingleEl.checked = payload.teamMode !== true;
+    updateModeUI();
   }
 
   STATE = {
@@ -567,4 +578,5 @@ function clearSaved() {
 
 document.addEventListener("DOMContentLoaded", () => {
   loadState();
+  updateModeUI();
 });
