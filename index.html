@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="pl">
 <head>
@@ -14,31 +13,43 @@
 
     <!-- LEWA: STEROWANIE -->
     <div class="controlsPanel">
-      <h1>Losowanie grup – PFM</h1>
+      <div class="appHeader">
+        <img src="PFM_logo.png" alt="Logo PFM" class="pfmLogo">
+        <h1>Losowanie grup – PFM</h1>
+      </div>
 
-      
-<div class="explain">
-  <p>
-    <b>Seed</b> to hasło losowania. 
-    Jeśli użyjemy <b>tych samych danych</b> i <b>tego samego seeda</b>, 
-    wynik losowania zawsze będzie taki sam.
-  </p>
-  <p>
-    Żeby każde losowanie było inne, system domyślnie dodaje <b>losową sól</b> — 
-    to jak dorzucenie małej, tajnej liczby do seeda.
-  </p>
-  <p>
-    Finalny seed (seed + sól) jest zapisywany w logu, 
-    więc losowanie można <b>później dokładnie odtworzyć</b> (tryb audytu).
-  </p>
-</div>
-
+      <div class="explain">
+        <p>
+          Losowanie korzysta z <b>seeda</b> (hasła losowania). Te same dane i ten sam seed zawsze dają ten sam wynik.
+        </p>
+        <p>
+          Domyślnie dodawana jest <b>losowa sól</b>, aby każde losowanie było inne.
+          Seed końcowy i sól są zapisane w logu — wynik można odtworzyć (audit).
+        </p>
+      </div>
 
       <label>Seed:</label>
       <input type="text" id="seed" value="PFM-Turniej-2026">
 
       <label>Liczba grup:</label>
       <input type="number" id="groupCount" value="10" min="2" max="30">
+
+      <div class="modeToggle">
+        <label class="modeOption">
+          <input type="radio" name="drawMode" id="modeSingle" value="single" checked>
+          <span class="modeLabel">
+            <span class="modeTitle">Indywidualny</span>
+            <span class="modeDesc">Zawodnik + klub</span>
+          </span>
+        </label>
+        <label class="modeOption">
+          <input type="radio" name="drawMode" id="modeTeam" value="team">
+          <span class="modeLabel">
+            <span class="modeTitle">Drużynowy</span>
+            <span class="modeDesc">Cała linia = nazwa drużyny</span>
+          </span>
+        </label>
+      </div>
 
       <label>Koszyki (do wklejenia z Excela):</label>
       <textarea id="input" rows="9"></textarea>
@@ -80,5 +91,11 @@
 </div>
 
 <script src="draw.js"></script>
+<script>
+  // helper: draw.js reads teamMode via this function
+  Object.defineProperty(document, 'teamModeActive', {
+    get: () => document.getElementById('modeTeam')?.checked === true
+  });
+</script>
 </body>
 </html>

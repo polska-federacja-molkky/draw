@@ -23,7 +23,23 @@ body {
   background: #f8fafc;
 }
 
-.explain {
+.appHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.pfmLogo {
+  height: 52px;
+  width: auto;
+}
+
+.appHeader h1 {
+  margin: 0;
+}
+
+
   font-size: 13px;
   background: #eef4ff;
   border-radius: 8px;
@@ -48,6 +64,61 @@ input, textarea {
 textarea {
   font-family: ui-monospace, monospace;
 }
+
+/* ========================
+   Tryb losowania (radio)
+   ======================== */
+.modeToggle {
+  display: flex;
+  gap: 8px;
+  margin: 10px 0 6px;
+}
+
+.modeOption {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  background: #ffffff;
+  border: 1.5px solid #d0d7de;
+  border-radius: 8px;
+  padding: 8px 10px;
+  cursor: pointer;
+  font-weight: 400;
+  margin-top: 0;
+  transition: border-color 0.15s;
+}
+
+.modeOption:has(input:checked) {
+  border-color: #106ebe;
+  background: #eef4ff;
+}
+
+.modeOption input[type="radio"] {
+  width: auto;
+  margin: 0;
+  flex-shrink: 0;
+  accent-color: #106ebe;
+}
+
+.modeLabel {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.modeTitle {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1b1b1b;
+}
+
+.modeDesc {
+  font-size: 11px;
+  color: #57606a;
+}
+
+/* ======================== */
 
 .buttons {
   display: flex;
@@ -136,4 +207,3 @@ button:disabled {
   opacity: 0.8;
   word-break: break-word;
 }
-``

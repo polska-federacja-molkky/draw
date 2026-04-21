@@ -27,9 +27,8 @@ function shuffle(arr, random) {
 // helpers
 // ======================
 function groupLabel(i) {
-  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-  if (i < alphabet.length) return `Grupa ${alphabet[i]}`;
-  return `Grupa ${i + 1}`;
+  const s = excelLetters(i);
+  return `Grupa ${s}`;
 }
 
 // Excel-like column name: A..Z, AA..AZ, BA...
@@ -54,7 +53,6 @@ function escapeHtml(str) {
 }
 
 function cryptoRandomInt() {
-  // lepsze niż Math.random (ale z fallbackiem)
   try {
     const a = new Uint32Array(1);
     crypto.getRandomValues(a);
@@ -67,7 +65,7 @@ function cryptoRandomInt() {
 // ======================
 // parsing excel paste
 // ======================
-function parseInput(text) {
+function parseInput(text, teamMode) {
   const lines = text.split(/\r?\n/);
   const baskets = [];
   let current = null;
@@ -88,7 +86,13 @@ function parseInput(text) {
       baskets.push(current);
     }
 
-    // TAB z Excela albo 2+ spacje
+    // Tryb drużynowy: cała linia = nazwa drużyny, brak klubu
+    if (teamMode) {
+      current.players.push({ name: line, club: "" });
+      continue;
+    }
+
+    // Tryb indywidualny: wykrywanie klubu
     let name = line;
     let club = "-";
 
@@ -126,7 +130,8 @@ let STATE = {
   groupCount: 0,
   started: false,
   finalSeed: "",
-  salt: ""
+  salt: "",
+  teamMode: false
 };
 
 // ======================
@@ -138,7 +143,6 @@ function buildTable(baskets, groupCount) {
   const table = document.createElement("table");
   table.className = "resultTable";
 
-  // colgroup = stabilne szerokości
   const colgroup = document.createElement("colgroup");
 
   const colKoszyk = document.createElement("col");
@@ -147,7 +151,7 @@ function buildTable(baskets, groupCount) {
 
   for (let i = 0; i < groupCount; i++) {
     const col = document.createElement("col");
-    col.style.width = "240px"; // default pod nazwisko ~ "Agnieszka Wojciechowska"
+    col.style.width = "240px";
     colgroup.appendChild(col);
   }
 
@@ -216,15 +220,15 @@ function startDraw() {
   const baseSeed = document.getElementById("seed").value.trim();
   const text = document.getElementById("input").value.trim();
   const groupCount = parseInt(document.getElementById("groupCount").value, 10);
+  const teamMode = document.getElementById("modeTeam")?.checked === true;
 
   if (!baseSeed) return alert("Brak seeda.");
   if (!text) return alert("Brak danych z Excela.");
   if (!groupCount || groupCount < 2) return alert("Podaj poprawną liczbę grup (min 2).");
 
-  const baskets = parseInput(text);
+  const baskets = parseInput(text, teamMode);
   if (!baskets.length) return alert("Nie wykryto żadnego koszyka (nagłówki 'KOSZYK X').");
 
-  // walidacja: koszyk nie może mieć > groupCount
   const tooBig = baskets
     .map(b => ({ label: b.label, n: b.players.length }))
     .filter(x => x.n > groupCount);
@@ -245,17 +249,14 @@ function startDraw() {
     salt = "(wyłączona)";
     finalSeed = baseSeed;
   } else {
-    // jawna sól, żeby było widać co wylosowało
     salt = `${new Date().toISOString()}-${cryptoRandomInt()}`;
     finalSeed = `${baseSeed} | ${salt}`;
   }
 
   const random = createSeededRandom(finalSeed);
 
-  // tasujemy każdy koszyk deterministycznie dla finalSeed
   baskets.forEach(b => shuffle(b.players, random));
 
-  // budujemy kroki: koszyk po koszyku, grupa A..Z
   const steps = [];
   baskets.forEach((b, bIdx) => {
     for (let g = 0; g < groupCount; g++) {
@@ -270,13 +271,11 @@ function startDraw() {
     }
   });
 
-  // reset UI
   document.getElementById("log").innerHTML = "";
   buildTable(baskets, groupCount);
 
-  STATE = { steps, idx: 0, baskets, groupCount, started: true, finalSeed, salt };
+  STATE = { steps, idx: 0, baskets, groupCount, started: true, finalSeed, salt, teamMode };
 
-  // enable buttons
   const btnNext = document.getElementById("btnNext");
   const btnExport = document.getElementById("btnExport");
   const btnCopy = document.getElementById("btnCopy");
@@ -284,7 +283,8 @@ function startDraw() {
   if (btnExport) btnExport.disabled = false;
   if (btnCopy) btnCopy.disabled = false;
 
-  addLog(`Start losowania. Grupy=${groupCount}. Koszyki=${baskets.length}.`);
+  const modeLabel = teamMode ? "DRUŻYNOWY" : "INDYWIDUALNY";
+  addLog(`Start losowania. Tryb: ${modeLabel}. Grupy=${groupCount}. Koszyki=${baskets.length}.`);
   addLog(`Tryb seeda: ${useExact ? "DOKŁADNY (odtwarzanie)" : "NORMALNY (losowa sól)"}`);
   addLog(`Sól: ${salt}`);
   addLog(`Seed końcowy użyty do losowania (AUDYT): ${finalSeed}`);
@@ -293,16 +293,13 @@ function startDraw() {
 }
 
 // ======================
-// STEP: 1 click = 1 person
+// STEP: 1 click = 1 person / team
 // ======================
 function nextStep() {
   if (!STATE.started) return;
 
   if (STATE.idx >= STATE.steps.length) {
-    addLog("Losowanie zakończone.");
-    const btnNext = document.getElementById("btnNext");
-    if (btnNext) btnNext.disabled = true;
-    saveState();
+    finalizeDraw();
     return;
   }
 
@@ -319,50 +316,65 @@ function nextStep() {
     `;
   }
 
-  addLog(`${s.basketLabel} → ${s.groupLabel}: ${s.player.name} (${s.player.club})`);
+  addLog(`${s.basketLabel} → ${s.groupLabel}: ${s.player.name}${s.player.club ? " (" + s.player.club + ")" : ""}`);
 
   STATE.idx++;
 
   if (STATE.idx >= STATE.steps.length) {
-    addLog("Losowanie zakończone.");
-    const btnNext = document.getElementById("btnNext");
-    if (btnNext) btnNext.disabled = true;
+    finalizeDraw();
   }
 
   saveState();
 }
 
+function finalizeDraw() {
+  addLog("Losowanie zakończone.");
+  const btnNext = document.getElementById("btnNext");
+  if (btnNext) btnNext.disabled = true;
+}
+
 // ======================
-// EXPORT: TSV (plik, Excel-friendly – macierz koszyk x grupa)
+// EXPORT: TSV (plik, Excel-friendly)
+// Bugfix: każda grupa zawsze zajmuje dokładnie 2 kolumny (nazwa + klub)
 // ======================
 function buildExportMatrix() {
   const basketsCount = STATE.baskets.length;
   const groupCount = STATE.groupCount;
 
+  // Każda komórka to tablica [nazwa, klub] — zawsze 2 elementy
   const matrix = Array.from({ length: basketsCount }, () =>
-    Array.from({ length: groupCount }, () => "")
+    Array.from({ length: groupCount }, () => ["", ""])
   );
 
   for (const s of STATE.steps) {
-    const label =
-      (s.player.name === "—" && s.player.club === "—")
-        ? ""
-        : `${s.player.name}\t${s.player.club}`; // rozdzielone w TSV
-    matrix[s.basketIndex][s.groupIndex] = label;
+    const isEmpty = (s.player.name === "—" && s.player.club === "—");
+    matrix[s.basketIndex][s.groupIndex] = isEmpty
+      ? ["", ""]
+      : [s.player.name, s.player.club || ""];
   }
 
   return matrix;
 }
 
 function matrixToTSV(matrix) {
-  const headers = Array.from({ length: STATE.groupCount }, (_, g) => groupLabel(g));
   const rows = [];
-  rows.push(["Koszyk", ...headers].join("\t"));
+
+  // Nagłówek: Grupa A, (puste na klub), Grupa B, ...
+  const headerCols = ["Koszyk"];
+  for (let g = 0; g < STATE.groupCount; g++) {
+    headerCols.push(groupLabel(g), STATE.teamMode ? "" : "Klub");
+  }
+  rows.push(headerCols.join("\t"));
 
   for (let b = 0; b < matrix.length; b++) {
     const basketName = STATE.baskets[b].label;
-    rows.push([basketName, ...matrix[b]].join("\t"));
+    const rowCols = [basketName];
+    for (let g = 0; g < STATE.groupCount; g++) {
+      rowCols.push(...matrix[b][g]); // zawsze 2 wartości
+    }
+    rows.push(rowCols.join("\t"));
   }
+
   return rows.join("\n");
 }
 
@@ -388,38 +400,32 @@ function exportTSV() {
 }
 
 // ======================
-// COPY RESULTS TO CLIPBOARD (format blokowy jak na screenie)
-// - 2 kolumny na grupę: ImięNazwisko | Klub
-// - + 1 pusta kolumna separatora między grupami (jak w Excelu)
+// COPY RESULTS TO CLIPBOARD
 // ======================
 async function copyResultsToClipboard() {
   if (!STATE || !STATE.started) return alert("Najpierw kliknij Start.");
 
   const groups = STATE.groupCount;
 
-  // perGroup[g] = [{name, club}, ...] w kolejności losowania
   const perGroup = Array.from({ length: groups }, () => []);
 
-  // bierzemy tylko realnych graczy (bez pustych)
   for (const s of STATE.steps) {
     if (s.player && s.player.name && s.player.name !== "—") {
-      perGroup[s.groupIndex].push({ name: s.player.name, club: s.player.club || "-" });
+      perGroup[s.groupIndex].push({ name: s.player.name, club: s.player.club || "" });
     }
   }
 
   const maxRows = Math.max(0, ...perGroup.map(g => g.length));
   const lines = [];
 
-  // nagłówek: Grupa A | (puste) | sep | Grupa B | (puste) | sep ...
   const header = [];
   for (let g = 0; g < groups; g++) {
     header.push(`Grupa ${excelLetters(g)}`);
-    header.push(""); // klub header pusty
-    if (g !== groups - 1) header.push(""); // separator
+    header.push(STATE.teamMode ? "" : "Klub");
+    if (g !== groups - 1) header.push("");
   }
   lines.push(header.join("\t"));
 
-  // wiersze danych
   for (let r = 0; r < maxRows; r++) {
     const row = [];
     for (let g = 0; g < groups; g++) {
@@ -456,16 +462,17 @@ function exportLog() {
 // ======================
 // PERSISTENCE: localStorage (refresh safe)
 // ======================
-const STORAGE_KEY = "pfm_draw_state_v5";
+const STORAGE_KEY = "pfm_draw_state_v6";
 
 function saveState() {
   if (!STATE || !STATE.started) return;
 
   const payload = {
-    version: 5,
+    version: 6,
     savedAt: new Date().toISOString(),
     baseSeed: document.getElementById("seed")?.value ?? "",
     exactSeed: document.getElementById("exactSeed")?.checked === true,
+    teamMode: STATE.teamMode ?? false,
     finalSeed: STATE.finalSeed ?? "",
     salt: STATE.salt ?? "",
     groupCount: STATE.groupCount,
@@ -491,31 +498,35 @@ function loadState() {
     return false;
   }
 
-  if (!payload || payload.version !== 5 || !payload.started) return false;
+  if (!payload || payload.version !== 6 || !payload.started) return false;
 
-  // restore inputs
   const seedEl = document.getElementById("seed");
   const groupEl = document.getElementById("groupCount");
   const inputEl = document.getElementById("input");
-  const exactEl = document.getElementById("exactSeed");
+  const exactEl      = document.getElementById("exactSeed");
+  const modeSingleEl = document.getElementById("modeSingle");
+  const modeTeamEl   = document.getElementById("modeTeam");
 
-  if (seedEl) seedEl.value = payload.baseSeed || "";
-  if (groupEl) groupEl.value = payload.groupCount || 10;
-  if (inputEl) inputEl.value = payload.inputText || "";
+  if (seedEl)  seedEl.value    = payload.baseSeed  || "";
+  if (groupEl) groupEl.value   = payload.groupCount || 10;
+  if (inputEl) inputEl.value   = payload.inputText  || "";
   if (exactEl) exactEl.checked = payload.exactSeed === true;
+  if (modeTeamEl && modeSingleEl) {
+    modeTeamEl.checked   = payload.teamMode === true;
+    modeSingleEl.checked = payload.teamMode !== true;
+  }
 
-  // restore state
   STATE = {
-    steps: payload.steps || [],
-    idx: payload.idx || 0,
-    baskets: payload.baskets || [],
+    steps:      payload.steps      || [],
+    idx:        payload.idx        || 0,
+    baskets:    payload.baskets    || [],
     groupCount: payload.groupCount || 10,
-    started: true,
-    finalSeed: payload.finalSeed || "",
-    salt: payload.salt || ""
+    started:    true,
+    finalSeed:  payload.finalSeed  || "",
+    salt:       payload.salt       || "",
+    teamMode:   payload.teamMode   ?? false
   };
 
-  // rebuild table + fill up to idx
   buildTable(STATE.baskets, STATE.groupCount);
 
   for (let i = 0; i < STATE.idx; i++) {
@@ -531,21 +542,19 @@ function loadState() {
     `;
   }
 
-  // restore log
   const logEl = document.getElementById("log");
   if (logEl) logEl.innerHTML = payload.logHtml || "";
 
-  // buttons
-  const btnNext = document.getElementById("btnNext");
+  const btnNext   = document.getElementById("btnNext");
   const btnExport = document.getElementById("btnExport");
-  const btnCopy = document.getElementById("btnCopy");
+  const btnCopy   = document.getElementById("btnCopy");
 
-  if (btnNext) btnNext.disabled = (STATE.idx >= STATE.steps.length);
+  if (btnNext)   btnNext.disabled   = (STATE.idx >= STATE.steps.length);
   if (btnExport) btnExport.disabled = false;
-  if (btnCopy) btnCopy.disabled = false;
+  if (btnCopy)   btnCopy.disabled   = false;
 
   addLog(`Przywrócono stan po odświeżeniu (krok ${STATE.idx}/${STATE.steps.length}).`);
-  if (STATE.salt) addLog(`Sól: ${STATE.salt}`);
+  if (STATE.salt)      addLog(`Sół: ${STATE.salt}`);
   if (STATE.finalSeed) addLog(`Seed końcowy użyty do losowania (AUDYT): ${STATE.finalSeed}`);
 
   return true;
