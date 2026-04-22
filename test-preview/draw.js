@@ -151,7 +151,9 @@ function buildTable(baskets, groupCount) {
 
   for (let i = 0; i < groupCount; i++) {
     const col = document.createElement("col");
-    col.style.width = "240px";
+    const available = (window.innerWidth - 52 - 32);
+    const colW = Math.min(200, Math.max(90, Math.floor(available / groupCount)));
+    col.style.width = colW + "px";
     colgroup.appendChild(col);
   }
 
@@ -211,6 +213,24 @@ function addLog(text) {
   div.textContent = text;
   log.appendChild(div);
   log.scrollTop = log.scrollHeight;
+}
+
+
+// ======================
+// UI HELPERS
+// ======================
+function toggleLog() {
+  const panel = document.getElementById("logPanel");
+  const btn   = document.getElementById("logToggleBtn");
+  if (!panel) return;
+  const collapsed = panel.classList.toggle("collapsed");
+  if (btn) btn.textContent = collapsed ? "Pokaż" : "Ukryj";
+}
+
+function toggleInfo() {
+  const box = document.getElementById("infoBox");
+  if (!box) return;
+  box.hidden = !box.hidden;
 }
 
 // ======================
@@ -341,6 +361,15 @@ function finalizeDraw() {
   addLog("Losowanie zakończone.");
   const btnNext = document.getElementById("btnNext");
   if (btnNext) btnNext.disabled = true;
+  // Auto-collapse log after short delay
+  setTimeout(() => {
+    const panel = document.getElementById("logPanel");
+    const btn   = document.getElementById("logToggleBtn");
+    if (panel && !panel.classList.contains("collapsed")) {
+      panel.classList.add("collapsed");
+      if (btn) btn.textContent = "Pokaż";
+    }
+  }, 1500);
 }
 
 // ======================
