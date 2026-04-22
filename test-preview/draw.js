@@ -1,3 +1,12 @@
+// ======================
+// MODE UI
+// ======================
+function updateModeUI() {
+  const teamMode = document.getElementById("modeTeam")?.checked === true;
+  const btn = document.getElementById("btnNext");
+  if (btn) btn.textContent = teamMode ? "Następna drużyna" : "Następny zawodnik";
+}
+
 
 // ======================
 // deterministic RNG
@@ -146,14 +155,12 @@ function buildTable(baskets, groupCount) {
   const colgroup = document.createElement("colgroup");
 
   const colKoszyk = document.createElement("col");
-  colKoszyk.style.width = "52px";
+  colKoszyk.style.width = "88px";
   colgroup.appendChild(colKoszyk);
 
   for (let i = 0; i < groupCount; i++) {
     const col = document.createElement("col");
-    const available = (window.innerWidth - 52 - 32);
-    const colW = Math.min(200, Math.max(90, Math.floor(available / groupCount)));
-    col.style.width = colW + "px";
+    col.style.width = "auto";
     colgroup.appendChild(col);
   }
 
@@ -181,7 +188,7 @@ function buildTable(baskets, groupCount) {
     const tr = document.createElement("tr");
 
     const th = document.createElement("th");
-    th.textContent = String(bIdx + 1);
+    th.textContent = b.label;
     tr.appendChild(th);
 
     for (let g = 0; g < groupCount; g++) {
@@ -213,33 +220,6 @@ function addLog(text) {
   div.textContent = text;
   log.appendChild(div);
   log.scrollTop = log.scrollHeight;
-}
-
-
-// ======================
-// UI HELPERS
-// ======================
-function toggleLog() {
-  const panel = document.getElementById("logPanel");
-  const btn   = document.getElementById("logToggleBtn");
-  if (!panel) return;
-  const collapsed = panel.classList.toggle("collapsed");
-  if (btn) btn.textContent = collapsed ? "Pokaż" : "Ukryj";
-}
-
-function toggleInfo() {
-  const box = document.getElementById("infoBox");
-  if (!box) return;
-  box.hidden = !box.hidden;
-}
-
-// ======================
-// MODE UI (button label)
-// ======================
-function updateModeUI() {
-  const teamMode = document.getElementById("modeTeam")?.checked === true;
-  const btnNext = document.getElementById("btnNext");
-  if (btnNext) btnNext.textContent = teamMode ? "Następna drużyna" : "Następny zawodnik";
 }
 
 // ======================
@@ -313,7 +293,6 @@ function startDraw() {
   if (btnCopy) btnCopy.disabled = false;
 
   const modeLabel = teamMode ? "DRUŻYNOWY" : "INDYWIDUALNY";
-  updateModeUI();
   addLog(`Start losowania. Tryb: ${modeLabel}. Grupy=${groupCount}. Koszyki=${baskets.length}.`);
   addLog(`Tryb seeda: ${useExact ? "DOKŁADNY (odtwarzanie)" : "NORMALNY (losowa sól)"}`);
   addLog(`Sól: ${salt}`);
@@ -361,15 +340,6 @@ function finalizeDraw() {
   addLog("Losowanie zakończone.");
   const btnNext = document.getElementById("btnNext");
   if (btnNext) btnNext.disabled = true;
-  // Auto-collapse log after short delay
-  setTimeout(() => {
-    const panel = document.getElementById("logPanel");
-    const btn   = document.getElementById("logToggleBtn");
-    if (panel && !panel.classList.contains("collapsed")) {
-      panel.classList.add("collapsed");
-      if (btn) btn.textContent = "Pokaż";
-    }
-  }, 1500);
 }
 
 // ======================
