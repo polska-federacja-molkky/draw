@@ -1,11 +1,9 @@
 /* ============================================================
-   PFM Draw — styl spójny z molkky.pl
+   PFM Draw — redesign v2
    Paleta: granat #1a2448 | czerwień #c0141c | tło #f2f3f5
    ============================================================ */
 
-*, *::before, *::after {
-  box-sizing: border-box;
-}
+*, *::before, *::after { box-sizing: border-box; }
 
 body {
   margin: 0;
@@ -15,70 +13,125 @@ body {
   font-size: 14px;
 }
 
-.page {
-  max-width: 1600px;
-  margin: 0 auto;
-  padding: 20px 16px 40px;
-}
-
-.topGrid {
-  display: grid;
-  grid-template-columns: 520px 1fr;
-  gap: 16px;
-  align-items: start;
-}
-
-.controlsPanel,
-.logPanel {
-  background: #ffffff;
-  border: 1px solid #e2e4e8;
-  border-radius: 10px;
-  padding: 20px;
-  box-shadow: 0 1px 4px rgba(0,0,0,.06);
-}
-
+/* ========================
+   HEADER
+   ======================== */
 .appHeader {
+  background: #ffffff;
+  border-bottom: 1px solid #e2e4e8;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 1px 4px rgba(0,0,0,.07);
+}
+
+.appHeaderInner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 20px;
+}
+
+.appHeaderLeft {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 16px;
-  padding-bottom: 14px;
-  border-bottom: 2px solid #f2f3f5;
 }
 
 .pfmLogo {
-  height: 48px;
+  height: 44px;
   width: auto;
 }
 
 .appHeader h1 {
   margin: 0;
-  font-size: 20px;
+  font-size: 19px;
   font-weight: 700;
   color: #1a2448;
-  letter-spacing: -0.3px;
+  line-height: 1.2;
 }
 
-.explain {
-  font-size: 12.5px;
-  line-height: 1.55;
-  background: #f7f8fc;
-  border-left: 3px solid #c0141c;
-  border-radius: 0 6px 6px 0;
-  padding: 8px 12px;
+.appSubtitle {
+  font-size: 11px;
+  color: #999;
+  display: block;
+  letter-spacing: 0.3px;
+}
+
+.infoToggleBtn {
+  background: transparent;
+  color: #1a2448;
+  border: 1px solid #d0d3da;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background .15s, border-color .15s;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+.infoToggleBtn:hover {
+  background: #f2f3f5;
+  border-color: #1a2448;
+}
+
+/* ========================
+   INFO BOX
+   ======================== */
+.infoBox {
+  background: #fff8f0;
+  border-bottom: 1px solid #f0d9b5;
+}
+
+.infoBoxInner {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 10px 20px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #555;
+}
+
+.infoBoxInner p { margin: 0 0 4px; }
+.infoBoxInner p:last-child { margin: 0; }
+
+/* ========================
+   LAYOUT
+   ======================== */
+.page {
+  padding: 14px 16px 40px;
+}
+
+.topPanel {
+  display: grid;
+  grid-template-columns: 380px 1fr;
+  gap: 14px;
+  align-items: start;
   margin-bottom: 14px;
-  color: #444;
 }
 
-.explain p { margin: 0 0 4px; }
-.explain p:last-child { margin: 0; }
+/* ========================
+   CONTROLS PANEL
+   ======================== */
+.controlsPanel {
+  background: #ffffff;
+  border: 1px solid #e2e4e8;
+  border-radius: 10px;
+  padding: 16px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.05);
+}
 
+/* ========================
+   LABELS & INPUTS
+   ======================== */
 label {
   font-weight: 600;
-  font-size: 12px;
+  font-size: 11.5px;
   text-transform: uppercase;
-  letter-spacing: 0.4px;
-  color: #555;
+  letter-spacing: 0.5px;
+  color: #666;
   margin-top: 10px;
   margin-bottom: 3px;
   display: block;
@@ -89,7 +142,7 @@ input[type="number"],
 textarea {
   width: 100%;
   padding: 7px 10px;
-  font-size: 13.5px;
+  font-size: 13px;
   border: 1px solid #d0d3da;
   border-radius: 6px;
   background: #fff;
@@ -107,14 +160,17 @@ textarea:focus {
 
 textarea {
   font-family: ui-monospace, monospace;
-  font-size: 12.5px;
+  font-size: 12px;
   resize: vertical;
 }
 
+/* ========================
+   TRYB LOSOWANIA (radio)
+   ======================== */
 .modeToggle {
   display: flex;
   gap: 8px;
-  margin: 12px 0 6px;
+  margin-bottom: 4px;
 }
 
 .modeOption {
@@ -125,9 +181,8 @@ textarea {
   background: #f7f8fc;
   border: 1.5px solid #d0d3da;
   border-radius: 8px;
-  padding: 8px 12px;
+  padding: 8px 10px;
   cursor: pointer;
-  font-weight: 400;
   margin-top: 0;
   transition: border-color .15s, background .15s;
 }
@@ -154,118 +209,95 @@ textarea {
 }
 
 .modeTitle {
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 700;
   color: #1a2448;
 }
 
 .modeDesc {
-  font-size: 11px;
-  color: #888;
+  font-size: 10.5px;
+  color: #999;
 }
 
+/* ========================
+   PRZYCISKI
+   ======================== */
 .buttons {
   display: flex;
-  gap: 8px;
-  margin-top: 12px;
+  gap: 7px;
+  margin-top: 10px;
   flex-wrap: wrap;
 }
 
 button {
-  padding: 8px 14px;
+  padding: 8px 13px;
   border-radius: 6px;
   border: none;
   background: #c0141c;
   color: white;
   font-weight: 700;
-  font-size: 13px;
+  font-size: 12.5px;
   cursor: pointer;
   transition: background .15s, transform .1s;
-  letter-spacing: 0.1px;
 }
 
-button:hover:not(:disabled) {
-  background: #a01018;
-}
+button:hover:not(:disabled) { background: #a01018; }
+button:active:not(:disabled) { transform: scale(0.98); }
+button:disabled { background: #c5c8ce; cursor: default; }
 
-button:active:not(:disabled) {
-  transform: scale(0.98);
-}
-
-button:disabled {
-  background: #c5c8ce;
-  cursor: default;
-}
-
-#btnNext {
-  min-width: 160px;
-}
+#btnNext { min-width: 155px; }
 
 .buttons.secondary button {
   background: #1a2448;
-  font-size: 12px;
+  font-size: 11.5px;
+  padding: 6px 10px;
 }
 
-.buttons.secondary button:hover:not(:disabled) {
-  background: #131a35;
-}
+.buttons.secondary button:hover:not(:disabled) { background: #131a35; }
 
-.logPanel h2 {
-  margin: 0 0 12px;
-  font-size: 15px;
-  font-weight: 700;
-  color: #1a2448;
-}
-
-.log {
-  height: 360px;
-  overflow-y: auto;
-  font-size: 12.5px;
-  line-height: 1.6;
-  background: #f7f8fc;
-  border: 1px solid #e2e4e8;
-  border-radius: 6px;
-  padding: 10px 12px;
-}
-
-.log div {
-  padding: 1px 0;
-  border-bottom: 1px solid rgba(0,0,0,.04);
-}
-
-.log div:last-child {
-  border-bottom: none;
-}
-
+/* ========================
+   OPCJE ZAAWANSOWANE
+   ======================== */
 .advanced {
-  margin-top: 14px;
-  font-size: 13px;
+  margin-top: 12px;
+  border-top: 1px solid #f0f0f0;
+  padding-top: 10px;
 }
 
 .advanced summary {
   cursor: pointer;
-  color: #1a2448;
+  color: #888;
   font-weight: 600;
-  font-size: 12px;
+  font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: 0.4px;
+  letter-spacing: 0.5px;
   user-select: none;
-  padding: 4px 0;
+  padding: 2px 0;
+  list-style: none;
 }
 
-.advanced summary:hover {
-  color: #c0141c;
+.advanced summary::before {
+  content: '▶  ';
+  font-size: 9px;
 }
+
+details[open] .advanced summary::before,
+.advanced[open] summary::before {
+  content: '▼  ';
+}
+
+.advanced summary:hover { color: #c0141c; }
 
 .checkbox {
   display: flex;
   align-items: center;
   gap: 8px;
   font-weight: 400;
-  margin-top: 10px;
-  cursor: pointer;
+  text-transform: none;
+  letter-spacing: 0;
   font-size: 13px;
   color: #333;
+  cursor: pointer;
 }
 
 .checkbox input[type="checkbox"] {
@@ -278,18 +310,90 @@ button:disabled {
   box-shadow: none;
 }
 
-.tableSection {
-  margin-top: 20px;
+/* ========================
+   LOG PANEL
+   ======================== */
+.logPanel {
   background: #ffffff;
   border: 1px solid #e2e4e8;
   border-radius: 10px;
-  padding: 16px 20px;
-  box-shadow: 0 1px 4px rgba(0,0,0,.06);
+  box-shadow: 0 1px 4px rgba(0,0,0,.05);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.logHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px 10px;
+  border-bottom: 1px solid #f0f0f0;
+  flex-shrink: 0;
+}
+
+.logHeader h2 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #1a2448;
+}
+
+.logToggleBtn {
+  background: transparent;
+  color: #888;
+  border: 1px solid #e0e0e0;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  letter-spacing: 0;
+}
+
+.logToggleBtn:hover:not(:disabled) {
+  background: #f7f8fc;
+  color: #1a2448;
+  border-color: #1a2448;
+}
+
+.log {
+  flex: 1;
+  overflow-y: auto;
+  font-size: 12.5px;
+  line-height: 1.65;
+  padding: 10px 14px;
+  min-height: 200px;
+  max-height: 340px;
+  font-family: ui-monospace, monospace;
+  color: #333;
+}
+
+.log div {
+  padding: 1.5px 0;
+  border-bottom: 1px solid rgba(0,0,0,.035);
+}
+
+.log div:last-child { border-bottom: none; }
+
+/* Collapsed log */
+.logPanel.collapsed .log { display: none; }
+.logPanel.collapsed { box-shadow: none; }
+
+/* ========================
+   TABLE SECTION
+   ======================== */
+.tableSection {
+  background: #ffffff;
+  border: 1px solid #e2e4e8;
+  border-radius: 10px;
+  padding: 14px 16px 20px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.05);
 }
 
 .tableSection h2 {
-  margin: 0 0 14px;
-  font-size: 16px;
+  margin: 0 0 12px;
+  font-size: 15px;
   font-weight: 700;
   color: #1a2448;
 }
@@ -299,54 +403,54 @@ button:disabled {
   overflow-x: auto;
 }
 
+/* ========================
+   RESULTS TABLE
+   ======================== */
 .resultTable {
   border-collapse: collapse;
   table-layout: fixed;
-  min-width: 100%;
+  width: 100%;
   font-size: 13px;
 }
 
 .resultTable th,
 .resultTable td {
   border: 1px solid #e2e4e8;
-  padding: 6px 8px;
+  padding: 5px 7px;
   vertical-align: top;
 }
 
 .resultTable thead th {
   background: #1a2448;
   color: #fff;
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 700;
   letter-spacing: 0.3px;
   text-align: center;
   position: sticky;
   top: 0;
+  white-space: nowrap;
 }
 
-.resultTable thead th:first-child {
-  background: #111c3a;
-}
+.resultTable thead th:first-child { background: #111c3a; }
 
 .resultTable tbody th {
-  width: 52px;
-  min-width: 52px;
-  max-width: 52px;
   white-space: nowrap;
   background: #f7f8fc;
   text-align: center;
-  font-size: 12px;
-  color: #888;
-  font-weight: 600;
+  font-size: 11.5px;
+  color: #999;
+  font-weight: 700;
 }
 
-.resultTable tbody tr:nth-child(even) td {
-  background: #fafbfd;
-}
+.resultTable tbody tr:nth-child(even) td { background: #fafbfd; }
 
+/* ========================
+   KOMÓRKA ZAWODNIKA
+   ======================== */
 .cell .name {
   font-weight: 700;
-  font-size: 15px;
+  font-size: 14px;
   line-height: 1.2;
   word-break: break-word;
   color: #1a2448;
@@ -354,16 +458,14 @@ button:disabled {
 
 .cell .club {
   font-size: 11px;
-  color: #888;
+  color: #999;
   word-break: break-word;
   margin-top: 1px;
 }
 
 @keyframes cellFadeIn {
-  from { opacity: 0; transform: translateY(-4px); }
+  from { opacity: 0; transform: translateY(-3px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
-.cell.filled {
-  animation: cellFadeIn 0.25s ease-out;
-}
+.cell.filled { animation: cellFadeIn 0.2s ease-out; }
