@@ -9,31 +9,31 @@
 </head>
 <body>
 
-<header class="appHeader">
-  <div class="appHeaderInner">
-    <div class="appHeaderLeft">
-      <img src="PFM_logo.png" alt="Logo PFM" class="pfmLogo">
-      <div>
-        <h1>Losowanie grup – PFM</h1>
-        <span class="appSubtitle">Polska Federacja Mölkky</span>
-      </div>
-    </div>
-    <button class="infoToggleBtn" onclick="toggleInfo()">ⓘ&nbsp; O aplikacji</button>
-  </div>
-</header>
-
-<div id="infoBox" class="infoBox" hidden>
-  <div class="infoBoxInner">
-    <p>Losowanie korzysta z <b>seeda</b> (hasła losowania). Te same dane i ten sam seed zawsze dają ten sam wynik.</p>
-    <p>Domyślnie dodawana jest <b>losowa sól</b>, aby każde losowanie było inne. Seed końcowy i sól są zapisane w logu — wynik można odtworzyć (tryb audytu). Seed i ustawienia audytu znajdziesz w <b>Opcjach zaawansowanych</b>.</p>
-  </div>
-</div>
-
 <div class="page">
+  <section class="topGrid">
 
-  <section class="topPanel">
-
+    <!-- LEWA: STEROWANIE -->
     <div class="controlsPanel">
+      <div class="appHeader">
+        <img src="PFM_logo.png" alt="Logo PFM" class="pfmLogo">
+        <h1>Losowanie grup – PFM</h1>
+      </div>
+
+      <div class="explain">
+        <p>
+          Losowanie korzysta z <b>seeda</b> (hasła losowania). Te same dane i ten sam seed zawsze dają ten sam wynik.
+        </p>
+        <p>
+          Domyślnie dodawana jest <b>losowa sól</b>, aby każde losowanie było inne.
+          Seed końcowy i sól są zapisane w logu — wynik można odtworzyć (audit).
+        </p>
+      </div>
+
+      <label>Seed:</label>
+      <input type="text" id="seed" value="PFM-Turniej-2026">
+
+      <label>Liczba grup:</label>
+      <input type="number" id="groupCount" value="10" min="2" max="30">
 
       <div class="modeToggle">
         <label class="modeOption">
@@ -52,11 +52,8 @@
         </label>
       </div>
 
-      <label>Liczba grup:</label>
-      <input type="number" id="groupCount" value="10" min="2" max="30">
-
       <label>Koszyki (do wklejenia z Excela):</label>
-      <textarea id="input" rows="10"></textarea>
+      <textarea id="input" rows="9"></textarea>
 
       <div class="buttons">
         <button onclick="startDraw()">Start / Reset</button>
@@ -67,28 +64,22 @@
       <details class="advanced">
         <summary>Opcje zaawansowane</summary>
 
-        <label>Seed:</label>
-        <input type="text" id="seed" value="PFM-Turniej-2026">
-
-        <label class="checkbox" style="margin-top:10px;">
+        <label class="checkbox">
           <input type="checkbox" id="exactSeed">
           Użyj dokładnie seeda (tryb audytu / odtwarzania)
         </label>
 
-        <div class="buttons secondary" style="margin-top:10px;">
-          <button onclick="exportTSV()" id="btnExport" disabled>Eksport TSV</button>
+        <div class="buttons secondary">
+          <button onclick="exportTSV()" id="btnExport" disabled>Eksport TSV (tabela koszyk×grupa)</button>
           <button onclick="exportLog()">Eksport logu</button>
           <button onclick="clearSaved()">Wyczyść zapis lokalny</button>
         </div>
       </details>
-
     </div>
 
-    <div class="logPanel" id="logPanel">
-      <div class="logHeader">
-        <h2>Przebieg losowania</h2>
-        <button class="logToggleBtn" id="logToggleBtn" onclick="toggleLog()">Ukryj</button>
-      </div>
+    <!-- PRAWA: LOG -->
+    <div class="logPanel">
+      <h2>Przebieg losowania</h2>
       <div id="log" class="log"></div>
     </div>
 
@@ -98,9 +89,14 @@
     <h2>Wynik losowania</h2>
     <div id="tableWrap"></div>
   </section>
-
 </div>
 
 <script src="draw.js"></script>
+<script>
+  // helper: draw.js reads teamMode via this function
+  Object.defineProperty(document, 'teamModeActive', {
+    get: () => document.getElementById('modeTeam')?.checked === true
+  });
+</script>
 </body>
 </html>

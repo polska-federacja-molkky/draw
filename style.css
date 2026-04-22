@@ -1,8 +1,3 @@
-/* ============================================================
-   PFM Draw — redesign v2
-   Paleta: granat #1a2448 | czerwień #c0141c | tło #f2f3f5
-   ============================================================ */
-
 *, *::before, *::after { box-sizing: border-box; }
 
 body {
@@ -10,133 +5,71 @@ body {
   font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
   background: #f2f3f5;
   color: #1b1b1b;
-  font-size: 14px;
 }
 
-/* ========================
-   HEADER
-   ======================== */
-.appHeader {
-  background: #ffffff;
-  border-bottom: 1px solid #e2e4e8;
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  box-shadow: 0 1px 4px rgba(0,0,0,.07);
-}
+.page { padding: 16px; }
 
-.appHeaderInner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 20px;
-}
-
-.appHeaderLeft {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.pfmLogo {
-  height: 44px;
-  width: auto;
-}
-
-.appHeader h1 {
-  margin: 0;
-  font-size: 19px;
-  font-weight: 700;
-  color: #1a2448;
-  line-height: 1.2;
-}
-
-.appSubtitle {
-  font-size: 11px;
-  color: #999;
-  display: block;
-  letter-spacing: 0.3px;
-}
-
-.infoToggleBtn {
-  background: transparent;
-  color: #1a2448;
-  border: 1px solid #d0d3da;
-  font-size: 12px;
-  font-weight: 600;
-  padding: 6px 12px;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: background .15s, border-color .15s;
-  letter-spacing: 0;
-  white-space: nowrap;
-}
-
-.infoToggleBtn:hover {
-  background: #f2f3f5;
-  border-color: #1a2448;
-}
-
-/* ========================
-   INFO BOX
-   ======================== */
-.infoBox {
-  background: #fff8f0;
-  border-bottom: 1px solid #f0d9b5;
-}
-
-.infoBoxInner {
-  max-width: 800px;
-  margin: 0 auto;
-  padding: 10px 20px;
-  font-size: 13px;
-  line-height: 1.6;
-  color: #555;
-}
-
-.infoBoxInner p { margin: 0 0 4px; }
-.infoBoxInner p:last-child { margin: 0; }
-
-/* ========================
-   LAYOUT
-   ======================== */
-.page {
-  padding: 14px 16px 40px;
-}
-
-.topPanel {
+.topGrid {
   display: grid;
-  grid-template-columns: 380px 1fr;
-  gap: 14px;
-  align-items: start;
-  margin-bottom: 14px;
+  grid-template-columns: 520px 1fr;
+  gap: 16px;
 }
 
-/* ========================
-   CONTROLS PANEL
-   ======================== */
-.controlsPanel {
+.controlsPanel,
+.logPanel {
   background: #ffffff;
   border: 1px solid #e2e4e8;
   border-radius: 10px;
   padding: 16px;
-  box-shadow: 0 1px 4px rgba(0,0,0,.05);
+  box-shadow: 0 1px 4px rgba(0,0,0,.06);
 }
 
-/* ========================
-   LABELS & INPUTS
-   ======================== */
+/* HEADER */
+.appHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #f2f3f5;
+}
+
+.pfmLogo { height: 48px; width: auto; }
+
+.appHeader h1 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: #1a2448;
+}
+
+/* EXPLAIN */
+.explain {
+  font-size: 12.5px;
+  line-height: 1.55;
+  background: #f7f8fc;
+  border-left: 3px solid #c0141c;
+  border-radius: 0 6px 6px 0;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+  color: #444;
+}
+.explain p { margin: 0 0 4px; }
+.explain p:last-child { margin: 0; }
+
+/* LABELS */
 label {
   font-weight: 600;
   font-size: 11.5px;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.4px;
   color: #666;
   margin-top: 10px;
   margin-bottom: 3px;
   display: block;
 }
 
+/* INPUTS */
 input[type="text"],
 input[type="number"],
 textarea {
@@ -149,29 +82,18 @@ textarea {
   color: #1b1b1b;
   transition: border-color .15s;
   outline: none;
+  box-sizing: border-box;
 }
-
 input[type="text"]:focus,
 input[type="number"]:focus,
 textarea:focus {
   border-color: #c0141c;
   box-shadow: 0 0 0 3px rgba(192,20,28,.1);
 }
+textarea { font-family: ui-monospace, monospace; font-size: 12px; resize: vertical; }
 
-textarea {
-  font-family: ui-monospace, monospace;
-  font-size: 12px;
-  resize: vertical;
-}
-
-/* ========================
-   TRYB LOSOWANIA (radio)
-   ======================== */
-.modeToggle {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 4px;
-}
+/* MODE TOGGLE */
+.modeToggle { display: flex; gap: 8px; margin: 10px 0 6px; }
 
 .modeOption {
   display: flex;
@@ -186,84 +108,49 @@ textarea {
   margin-top: 0;
   transition: border-color .15s, background .15s;
 }
-
 .modeOption:has(input:checked) {
   border-color: #c0141c;
   background: #fff5f5;
 }
-
 .modeOption input[type="radio"] {
-  width: auto;
-  margin: 0;
-  flex-shrink: 0;
-  accent-color: #c0141c;
-  border: none;
-  box-shadow: none;
-  padding: 0;
+  width: auto; margin: 0; flex-shrink: 0;
+  accent-color: #c0141c; border: none; box-shadow: none; padding: 0;
 }
+.modeLabel { display: flex; flex-direction: column; gap: 1px; }
+.modeTitle { font-size: 13px; font-weight: 700; color: #1a2448; }
+.modeDesc  { font-size: 11px; color: #999; }
 
-.modeLabel {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-
-.modeTitle {
-  font-size: 12.5px;
-  font-weight: 700;
-  color: #1a2448;
-}
-
-.modeDesc {
-  font-size: 10.5px;
-  color: #999;
-}
-
-/* ========================
-   PRZYCISKI
-   ======================== */
-.buttons {
-  display: flex;
-  gap: 7px;
-  margin-top: 10px;
-  flex-wrap: wrap;
-}
+/* BUTTONS */
+.buttons { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
 
 button {
-  padding: 8px 13px;
+  padding: 8px 14px;
   border-radius: 6px;
   border: none;
   background: #c0141c;
   color: white;
   font-weight: 700;
-  font-size: 12.5px;
+  font-size: 13px;
   cursor: pointer;
   transition: background .15s, transform .1s;
 }
-
 button:hover:not(:disabled) { background: #a01018; }
 button:active:not(:disabled) { transform: scale(0.98); }
 button:disabled { background: #c5c8ce; cursor: default; }
-
 #btnNext { min-width: 155px; }
 
 .buttons.secondary button {
   background: #1a2448;
-  font-size: 11.5px;
-  padding: 6px 10px;
+  font-size: 12px;
 }
-
 .buttons.secondary button:hover:not(:disabled) { background: #131a35; }
 
-/* ========================
-   OPCJE ZAAWANSOWANE
-   ======================== */
+/* ADVANCED */
 .advanced {
   margin-top: 12px;
   border-top: 1px solid #f0f0f0;
   padding-top: 10px;
 }
-
 .advanced summary {
   cursor: pointer;
   color: #888;
@@ -272,20 +159,9 @@ button:disabled { background: #c5c8ce; cursor: default; }
   text-transform: uppercase;
   letter-spacing: 0.5px;
   user-select: none;
-  padding: 2px 0;
   list-style: none;
+  padding: 2px 0;
 }
-
-.advanced summary::before {
-  content: '▶  ';
-  font-size: 9px;
-}
-
-details[open] .advanced summary::before,
-.advanced[open] summary::before {
-  content: '▼  ';
-}
-
 .advanced summary:hover { color: #c0141c; }
 
 .checkbox {
@@ -298,99 +174,46 @@ details[open] .advanced summary::before,
   font-size: 13px;
   color: #333;
   cursor: pointer;
+  margin-top: 8px;
 }
-
 .checkbox input[type="checkbox"] {
-  width: auto;
-  margin: 0;
-  flex-shrink: 0;
-  accent-color: #c0141c;
-  padding: 0;
-  border: none;
-  box-shadow: none;
+  width: auto; margin: 0; flex-shrink: 0;
+  accent-color: #c0141c; padding: 0; border: none; box-shadow: none;
 }
 
-/* ========================
-   LOG PANEL
-   ======================== */
-.logPanel {
-  background: #ffffff;
-  border: 1px solid #e2e4e8;
-  border-radius: 10px;
-  box-shadow: 0 1px 4px rgba(0,0,0,.05);
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
-.logHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 16px 10px;
-  border-bottom: 1px solid #f0f0f0;
-  flex-shrink: 0;
-}
-
-.logHeader h2 {
-  margin: 0;
-  font-size: 14px;
+/* LOG */
+.logPanel h2 {
+  margin: 0 0 10px;
+  font-size: 15px;
   font-weight: 700;
   color: #1a2448;
 }
-
-.logToggleBtn {
-  background: transparent;
-  color: #888;
-  border: 1px solid #e0e0e0;
-  font-size: 11px;
-  font-weight: 600;
-  padding: 3px 10px;
-  border-radius: 5px;
-  cursor: pointer;
-  letter-spacing: 0;
-}
-
-.logToggleBtn:hover:not(:disabled) {
-  background: #f7f8fc;
-  color: #1a2448;
-  border-color: #1a2448;
-}
-
 .log {
-  flex: 1;
+  height: 360px;
   overflow-y: auto;
   font-size: 12.5px;
   line-height: 1.65;
-  padding: 10px 14px;
-  min-height: 200px;
-  max-height: 340px;
+  background: #f7f8fc;
+  border: 1px solid #e2e4e8;
+  border-radius: 6px;
+  padding: 10px 12px;
   font-family: ui-monospace, monospace;
-  color: #333;
 }
-
 .log div {
   padding: 1.5px 0;
-  border-bottom: 1px solid rgba(0,0,0,.035);
+  border-bottom: 1px solid rgba(0,0,0,.04);
 }
-
 .log div:last-child { border-bottom: none; }
 
-/* Collapsed log */
-.logPanel.collapsed .log { display: none; }
-.logPanel.collapsed { box-shadow: none; }
-
-/* ========================
-   TABLE SECTION
-   ======================== */
+/* TABLE SECTION */
 .tableSection {
+  margin-top: 16px;
   background: #ffffff;
   border: 1px solid #e2e4e8;
   border-radius: 10px;
   padding: 14px 16px 20px;
   box-shadow: 0 1px 4px rgba(0,0,0,.05);
 }
-
 .tableSection h2 {
   margin: 0 0 12px;
   font-size: 15px;
@@ -398,40 +221,31 @@ details[open] .advanced summary::before,
   color: #1a2448;
 }
 
-#tableWrap {
-  width: 100%;
-  overflow-x: auto;
-}
+#tableWrap { width: 100%; overflow-x: auto; }
 
-/* ========================
-   RESULTS TABLE
-   ======================== */
+/* RESULTS TABLE — auto layout fills full width, columns scale naturally */
 .resultTable {
   border-collapse: collapse;
-  table-layout: fixed;
+  table-layout: auto;
   width: 100%;
   font-size: 13px;
 }
-
 .resultTable th,
 .resultTable td {
   border: 1px solid #e2e4e8;
   padding: 5px 7px;
   vertical-align: top;
 }
-
 .resultTable thead th {
   background: #1a2448;
   color: #fff;
   font-size: 11.5px;
   font-weight: 700;
-  letter-spacing: 0.3px;
   text-align: center;
   position: sticky;
   top: 0;
   white-space: nowrap;
 }
-
 .resultTable thead th:first-child { background: #111c3a; }
 
 .resultTable tbody th {
@@ -441,13 +255,11 @@ details[open] .advanced summary::before,
   font-size: 11.5px;
   color: #999;
   font-weight: 700;
+  width: 1%;  /* shrink to content */
 }
-
 .resultTable tbody tr:nth-child(even) td { background: #fafbfd; }
 
-/* ========================
-   KOMÓRKA ZAWODNIKA
-   ======================== */
+/* CELL */
 .cell .name {
   font-weight: 700;
   font-size: 14px;
@@ -455,7 +267,6 @@ details[open] .advanced summary::before,
   word-break: break-word;
   color: #1a2448;
 }
-
 .cell .club {
   font-size: 11px;
   color: #999;
@@ -467,5 +278,4 @@ details[open] .advanced summary::before,
   from { opacity: 0; transform: translateY(-3px); }
   to   { opacity: 1; transform: translateY(0); }
 }
-
 .cell.filled { animation: cellFadeIn 0.2s ease-out; }
