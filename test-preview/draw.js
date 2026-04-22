@@ -1,10 +1,12 @@
 // ======================
-// MODE UI
+// LOG TOGGLE
 // ======================
-function updateModeUI() {
-  const teamMode = document.getElementById("modeTeam")?.checked === true;
-  const btn = document.getElementById("btnNext");
-  if (btn) btn.textContent = teamMode ? "Następna drużyna" : "Następny zawodnik";
+function toggleLog() {
+  const panel = document.getElementById("logPanel");
+  const btn   = document.getElementById("logToggleBtn");
+  if (!panel) return;
+  const collapsed = panel.classList.toggle("collapsed");
+  if (btn) btn.textContent = collapsed ? "Pokaż" : "Ukryj";
 }
 
 
@@ -160,7 +162,7 @@ function buildTable(baskets, groupCount) {
 
   for (let i = 0; i < groupCount; i++) {
     const col = document.createElement("col");
-    col.style.width = "auto";
+
     colgroup.appendChild(col);
   }
 
@@ -340,6 +342,14 @@ function finalizeDraw() {
   addLog("Losowanie zakończone.");
   const btnNext = document.getElementById("btnNext");
   if (btnNext) btnNext.disabled = true;
+  setTimeout(() => {
+    const panel = document.getElementById("logPanel");
+    const btn   = document.getElementById("logToggleBtn");
+    if (panel && !panel.classList.contains("collapsed")) {
+      panel.classList.add("collapsed");
+      if (btn) btn.textContent = "Pokaż";
+    }
+  }, 1500);
 }
 
 // ======================
@@ -523,7 +533,6 @@ function loadState() {
   if (modeTeamEl && modeSingleEl) {
     modeTeamEl.checked   = payload.teamMode === true;
     modeSingleEl.checked = payload.teamMode !== true;
-    updateModeUI();
   }
 
   STATE = {
@@ -577,5 +586,4 @@ function clearSaved() {
 
 document.addEventListener("DOMContentLoaded", () => {
   loadState();
-  updateModeUI();
 });

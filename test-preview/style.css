@@ -225,11 +225,39 @@ button:disabled {
   background: #131a35;
 }
 
-.logPanel h2 {
-  margin: 0 0 12px;
+.logHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.logHeader h2 {
+  margin: 0;
   font-size: 15px;
   font-weight: 700;
   color: #1a2448;
+}
+.logToggleBtn {
+  background: transparent;
+  color: #999;
+  border: 1px solid #e0e0e0;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  letter-spacing: 0;
+  min-width: auto;
+  transition: color .15s, border-color .15s;
+}
+.logToggleBtn:hover:not(:disabled) {
+  background: transparent;
+  color: #1a2448;
+  border-color: #1a2448;
+  transform: none;
+}
+.logPanel.collapsed .log {
+  display: none;
 }
 
 .log {

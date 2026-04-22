@@ -76,8 +76,11 @@
     </div>
 
     <!-- PRAWA: LOG -->
-    <div class="logPanel">
-      <h2>Przebieg losowania</h2>
+    <div class="logPanel" id="logPanel">
+      <div class="logHeader">
+        <h2>Przebieg losowania</h2>
+        <button class="logToggleBtn" id="logToggleBtn" onclick="toggleLog()">Ukryj</button>
+      </div>
       <div id="log" class="log"></div>
     </div>
 
