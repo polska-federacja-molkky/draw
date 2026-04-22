@@ -18,16 +18,14 @@
         <h1>Losowanie grup – PFM</h1>
       </div>
 
-      <div class="explain">
-        <p>
-          Losowanie korzysta z <b>seeda</b> (hasła losowania). Te same dane i ten sam seed zawsze dają ten sam wynik.
-        </p>
-        <p>
-          Domyślnie dodawana jest <b>losowa sól</b>, aby każde losowanie było inne.
-          Seed końcowy i sól są zapisane w logu — wynik można odtworzyć (audit).
-        </p>
+
+
+      <div id="infoBox" class="infoBox" hidden>
+        <p>Losowanie korzysta z <b>seeda</b> (hasła losowania). Te same dane i ten sam seed zawsze dają ten sam wynik.</p>
+        <p>Domyślnie dodawana jest <b>losowa sól</b>, aby każde losowanie było inne. Seed końcowy i sól są zapisane w logu — wynik można odtworzyć (tryb audytu). Seed znajdziesz w Opcjach zaawansowanych.</p>
       </div>
 
+      <button class="infoBtnInline" onclick="document.getElementById('infoBox').hidden=!document.getElementById('infoBox').hidden">ⓘ O aplikacji</button>
 
       <label>Liczba grup:</label>
       <input type="number" id="groupCount" value="10" min="2" max="30">
