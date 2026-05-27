@@ -311,43 +311,30 @@ function startDraw() {
     parsed.forEach(b => shuffle(b.players, random));
     baskets = parsed;
   } else {
-    // Bez koszyków: realni gracze wypełniają pełne rundy, a placeholdery + niedobór
-    // trafiają do OSTATNIEJ rundy w losowych grupach (maks. 1 placeholder na grupę).
-    const pool = parsed.flatMap(b => b.players);
-    const reals = pool.filter(p => !p.placeholder);
-    const placeholders = pool.filter(p => p.placeholder);
+    // Bez koszyków: liczba rund i placeholderów wynika WYŁĄCZNIE z liczby realnych
+    // graczy podzielonej na grupy. Np. 46 graczy / 8 grup => ceil(46/8)=6 rund,
+    // 48 miejsc, czyli 2 placeholdery (6 grup po 6, 2 grupy po 5 + placeholder).
+    // Ewentualne wklejone wpisy "Gracz N" są ignorowane — liczymy od nowa.
+    const reals = parsed.flatMap(b => b.players).filter(p => !p.placeholder);
     shuffle(reals, random);
-    shuffle(placeholders, random);
 
-    const total = reals.length + placeholders.length;
-    const rows = Math.max(1, Math.ceil(total / groupCount));
+    const realCount = reals.length;
+    const rows = Math.max(1, Math.ceil(realCount / groupCount));
     const bodyCells = (rows - 1) * groupCount;
+    const placeholdersNeeded = rows * groupCount - realCount;
 
-    // Pełne (nie-ostatnie) rundy: najpierw realni; jeśli ich zabraknie (skrajny
-    // przypadek nadmiaru placeholderów) — dopełniamy placeholderami.
-    const leftoverPh = placeholders.slice();
-    const body = [];
-    let realIdx = 0;
-    for (let i = 0; i < bodyCells; i++) {
-      body.push(realIdx < reals.length ? reals[realIdx++] : leftoverPh.shift());
-    }
-
-    // Ostatnia runda: pozostali realni + placeholdery + dopełnienie do liczby grup.
-    // Wolne miejsca zamiast pustych kresek dostają wygenerowane placeholdery
-    // "Gracz N" (numeracja po liczbie wklejonych zawodników). Całość mieszamy
-    // i rozdajemy po kolei do grup A, B, C..., więc placeholdery trafiają do
-    // losowych grup (maks. 1 na grupę).
-    const lastItems = [...reals.slice(realIdx), ...leftoverPh];
-    let nextNum = total + 1;
-    while (lastItems.length < groupCount) {
-      lastItems.push({ name: `Gracz ${nextNum}`, club: "", placeholder: true });
-      nextNum++;
+    // Ostatnia runda: pozostali realni + wygenerowane placeholdery "Gracz N"
+    // (numeracja kontynuowana po liczbie graczy). Mieszamy i rozdajemy po kolei
+    // do grup A, B, C... — placeholdery trafiają do losowych grup (maks. 1 na grupę).
+    const lastItems = reals.slice(bodyCells);
+    for (let i = 0; i < placeholdersNeeded; i++) {
+      lastItems.push({ name: `Gracz ${realCount + 1 + i}`, club: "", placeholder: true });
     }
     shuffle(lastItems, random);
 
     baskets = [];
     for (let r = 0; r < rows - 1; r++) {
-      baskets.push({ label: String(r + 1), players: body.slice(r * groupCount, (r + 1) * groupCount) });
+      baskets.push({ label: String(r + 1), players: reals.slice(r * groupCount, (r + 1) * groupCount) });
     }
     baskets.push({ label: String(rows), players: lastItems.slice(0, groupCount) });
   }
