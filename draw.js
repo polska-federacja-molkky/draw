@@ -247,6 +247,17 @@ function buildTable(baskets, groupCount, useBaskets = true) {
 }
 
 // ======================
+// HIGHLIGHT NEXT CELL
+// ======================
+function highlightNext() {
+  document.querySelectorAll(".resultTable td.nextCell").forEach(td => td.classList.remove("nextCell"));
+  if (!STATE.started || STATE.idx >= STATE.steps.length) return;
+  const s = STATE.steps[STATE.idx];
+  const cell = document.getElementById(`cell-b${s.basketIndex}-g${s.groupIndex}`);
+  if (cell) cell.classList.add("nextCell");
+}
+
+// ======================
 // LOG
 // ======================
 function addLog(text) {
@@ -378,6 +389,7 @@ function startDraw() {
   addLog(`Sól: ${salt}`);
   addLog(`Seed końcowy użyty do losowania (AUDYT): ${finalSeed}`);
 
+  highlightNext();
   saveState();
 }
 
@@ -413,6 +425,7 @@ function nextStep() {
     finalizeDraw();
   }
 
+  highlightNext();
   saveState();
 }
 
@@ -656,6 +669,7 @@ function loadState() {
   if (STATE.salt)      addLog(`Sół: ${STATE.salt}`);
   if (STATE.finalSeed) addLog(`Seed końcowy użyty do losowania (AUDYT): ${STATE.finalSeed}`);
 
+  highlightNext();
   return true;
 }
 
