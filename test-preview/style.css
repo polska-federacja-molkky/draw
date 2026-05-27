@@ -179,6 +179,13 @@ textarea {
   color: #888;
 }
 
+.flatHint {
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: #888;
+  margin: 6px 0 0;
+}
+
 .buttons {
   display: flex;
   gap: 8px;
