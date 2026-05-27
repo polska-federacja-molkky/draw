@@ -47,7 +47,24 @@
         </label>
       </div>
 
-      <label>Koszyki (do wklejenia z Excela):</label>
+      <div class="modeToggle">
+        <label class="modeOption">
+          <input type="radio" name="basketMode" id="basketsOn" value="on" checked>
+          <span class="modeLabel">
+            <span class="modeTitle">Z koszykami</span>
+            <span class="modeDesc">Nagłówki KOSZYK 1, 2…</span>
+          </span>
+        </label>
+        <label class="modeOption">
+          <input type="radio" name="basketMode" id="basketsOff" value="off">
+          <span class="modeLabel">
+            <span class="modeTitle">Bez koszyków</span>
+            <span class="modeDesc">Sama lista nazwisk</span>
+          </span>
+        </label>
+      </div>
+
+      <label id="inputLabel">Koszyki (do wklejenia z Excela):</label>
       <textarea id="input" rows="9"></textarea>
 
       <div class="buttons">

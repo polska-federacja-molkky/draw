@@ -1,10 +1,19 @@
 // ======================
 // MODE UI
 // ======================
+function basketsEnabled() {
+  return document.getElementById("basketsOff")?.checked !== true;
+}
+
 function updateModeUI() {
   const teamMode = document.getElementById("modeTeam")?.checked === true;
   const btn = document.getElementById("btnNext");
   if (btn) btn.textContent = teamMode ? "Następna drużyna" : "Następny zawodnik";
+
+  const lbl = document.getElementById("inputLabel");
+  if (lbl) lbl.textContent = basketsEnabled()
+    ? "Koszyki (do wklejenia z Excela):"
+    : "Lista zawodników (do wklejenia z Excela):";
 }
 
 
@@ -74,7 +83,7 @@ function cryptoRandomInt() {
 // ======================
 // parsing excel paste
 // ======================
-function parseInput(text, teamMode) {
+function parseInput(text, teamMode, useBaskets = true) {
   const lines = text.split(/\r?\n/);
   const baskets = [];
   let current = null;
@@ -84,6 +93,8 @@ function parseInput(text, teamMode) {
     if (!line) continue;
 
     if (/^KOSZYK\b/i.test(line)) {
+      // Bez koszyków: pomijamy nagłówki KOSZYK, wszyscy trafiają do jednej puli
+      if (!useBaskets) continue;
       const num = (line.match(/\d+/) || ["?"])[0];
       current = { label: `Koszyk ${num}`, players: [] };
       baskets.push(current);
@@ -91,7 +102,7 @@ function parseInput(text, teamMode) {
     }
 
     if (!current) {
-      current = { label: "Koszyk 1", players: [] };
+      current = { label: useBaskets ? "Koszyk 1" : "Lista", players: [] };
       baskets.push(current);
     }
 
@@ -140,13 +151,14 @@ let STATE = {
   started: false,
   finalSeed: "",
   salt: "",
-  teamMode: false
+  teamMode: false,
+  useBaskets: true
 };
 
 // ======================
 // TABLE BUILD (fixed widths via colgroup)
 // ======================
-function buildTable(baskets, groupCount) {
+function buildTable(baskets, groupCount, useBaskets = true) {
   const wrap = document.getElementById("tableWrap");
 
   const table = document.createElement("table");
@@ -170,7 +182,7 @@ function buildTable(baskets, groupCount) {
   const trHead = document.createElement("tr");
 
   const th0 = document.createElement("th");
-  th0.textContent = "Koszyk";
+  th0.textContent = useBaskets ? "Koszyk" : "Lp.";
   trHead.appendChild(th0);
 
   for (let g = 0; g < groupCount; g++) {
@@ -230,23 +242,30 @@ function startDraw() {
   const text = document.getElementById("input").value.trim();
   const groupCount = parseInt(document.getElementById("groupCount").value, 10);
   const teamMode = document.getElementById("modeTeam")?.checked === true;
+  const useBaskets = basketsEnabled();
 
   if (!baseSeed) return alert("Brak seeda.");
   if (!text) return alert("Brak danych z Excela.");
   if (!groupCount || groupCount < 2) return alert("Podaj poprawną liczbę grup (min 2).");
 
-  const baskets = parseInput(text, teamMode);
-  if (!baskets.length) return alert("Nie wykryto żadnego koszyka (nagłówki 'KOSZYK X').");
+  const parsed = parseInput(text, teamMode, useBaskets);
+  const totalPlayers = parsed.reduce((s, b) => s + b.players.length, 0);
 
-  const tooBig = baskets
-    .map(b => ({ label: b.label, n: b.players.length }))
-    .filter(x => x.n > groupCount);
+  if (useBaskets) {
+    if (!parsed.length) return alert("Nie wykryto żadnego koszyka (nagłówki 'KOSZYK X').");
 
-  if (tooBig.length) {
-    return alert(
-      "Błąd: w niektórych koszykach jest więcej osób niż liczba grup.\n" +
-      tooBig.map(x => `${x.label}: ${x.n} > ${groupCount}`).join("\n")
-    );
+    const tooBig = parsed
+      .map(b => ({ label: b.label, n: b.players.length }))
+      .filter(x => x.n > groupCount);
+
+    if (tooBig.length) {
+      return alert(
+        "Błąd: w niektórych koszykach jest więcej osób niż liczba grup.\n" +
+        tooBig.map(x => `${x.label}: ${x.n} > ${groupCount}`).join("\n")
+      );
+    }
+  } else if (!totalPlayers) {
+    return alert("Brak zawodników na liście.");
   }
 
   const useExact = document.getElementById("exactSeed")?.checked === true;
@@ -264,7 +283,19 @@ function startDraw() {
 
   const random = createSeededRandom(finalSeed);
 
-  baskets.forEach(b => shuffle(b.players, random));
+  let baskets;
+  if (useBaskets) {
+    parsed.forEach(b => shuffle(b.players, random));
+    baskets = parsed;
+  } else {
+    // Bez koszyków: tasujemy całą pulę i dzielimy równo round-robin na wiersze po groupCount
+    const pool = parsed.flatMap(b => b.players);
+    shuffle(pool, random);
+    baskets = [];
+    for (let i = 0; i < pool.length; i += groupCount) {
+      baskets.push({ label: String(baskets.length + 1), players: pool.slice(i, i + groupCount) });
+    }
+  }
 
   const steps = [];
   baskets.forEach((b, bIdx) => {
@@ -281,9 +312,9 @@ function startDraw() {
   });
 
   document.getElementById("log").innerHTML = "";
-  buildTable(baskets, groupCount);
+  buildTable(baskets, groupCount, useBaskets);
 
-  STATE = { steps, idx: 0, baskets, groupCount, started: true, finalSeed, salt, teamMode };
+  STATE = { steps, idx: 0, baskets, groupCount, started: true, finalSeed, salt, teamMode, useBaskets };
 
   const btnNext = document.getElementById("btnNext");
   const btnExport = document.getElementById("btnExport");
@@ -293,7 +324,8 @@ function startDraw() {
   if (btnCopy) btnCopy.disabled = false;
 
   const modeLabel = teamMode ? "DRUŻYNOWY" : "INDYWIDUALNY";
-  addLog(`Start losowania. Tryb: ${modeLabel}. Grupy=${groupCount}. Koszyki=${baskets.length}.`);
+  const basketInfo = useBaskets ? `Koszyki=${baskets.length}` : `Bez koszyków, zawodników=${totalPlayers}`;
+  addLog(`Start losowania. Tryb: ${modeLabel}. Grupy=${groupCount}. ${basketInfo}.`);
   addLog(`Tryb seeda: ${useExact ? "DOKŁADNY (odtwarzanie)" : "NORMALNY (losowa sól)"}`);
   addLog(`Sól: ${salt}`);
   addLog(`Seed końcowy użyty do losowania (AUDYT): ${finalSeed}`);
@@ -471,17 +503,18 @@ function exportLog() {
 // ======================
 // PERSISTENCE: localStorage (refresh safe)
 // ======================
-const STORAGE_KEY = "pfm_draw_state_v6";
+const STORAGE_KEY = "pfm_draw_state_v7";
 
 function saveState() {
   if (!STATE || !STATE.started) return;
 
   const payload = {
-    version: 6,
+    version: 7,
     savedAt: new Date().toISOString(),
     baseSeed: document.getElementById("seed")?.value ?? "",
     exactSeed: document.getElementById("exactSeed")?.checked === true,
     teamMode: STATE.teamMode ?? false,
+    useBaskets: STATE.useBaskets ?? true,
     finalSeed: STATE.finalSeed ?? "",
     salt: STATE.salt ?? "",
     groupCount: STATE.groupCount,
@@ -507,7 +540,7 @@ function loadState() {
     return false;
   }
 
-  if (!payload || payload.version !== 6 || !payload.started) return false;
+  if (!payload || payload.version !== 7 || !payload.started) return false;
 
   const seedEl = document.getElementById("seed");
   const groupEl = document.getElementById("groupCount");
@@ -515,6 +548,8 @@ function loadState() {
   const exactEl      = document.getElementById("exactSeed");
   const modeSingleEl = document.getElementById("modeSingle");
   const modeTeamEl   = document.getElementById("modeTeam");
+  const basketsOnEl  = document.getElementById("basketsOn");
+  const basketsOffEl = document.getElementById("basketsOff");
 
   if (seedEl)  seedEl.value    = payload.baseSeed  || "";
   if (groupEl) groupEl.value   = payload.groupCount || 10;
@@ -523,8 +558,13 @@ function loadState() {
   if (modeTeamEl && modeSingleEl) {
     modeTeamEl.checked   = payload.teamMode === true;
     modeSingleEl.checked = payload.teamMode !== true;
-    updateModeUI();
   }
+  if (basketsOnEl && basketsOffEl) {
+    const ub = payload.useBaskets !== false;
+    basketsOnEl.checked  = ub;
+    basketsOffEl.checked = !ub;
+  }
+  updateModeUI();
 
   STATE = {
     steps:      payload.steps      || [],
@@ -534,10 +574,11 @@ function loadState() {
     started:    true,
     finalSeed:  payload.finalSeed  || "",
     salt:       payload.salt       || "",
-    teamMode:   payload.teamMode   ?? false
+    teamMode:   payload.teamMode   ?? false,
+    useBaskets: payload.useBaskets !== false
   };
 
-  buildTable(STATE.baskets, STATE.groupCount);
+  buildTable(STATE.baskets, STATE.groupCount, STATE.useBaskets);
 
   for (let i = 0; i < STATE.idx; i++) {
     const s = STATE.steps[i];
@@ -577,5 +618,8 @@ function clearSaved() {
 
 document.addEventListener("DOMContentLoaded", () => {
   loadState();
+  ["modeSingle", "modeTeam", "basketsOn", "basketsOff"].forEach(id => {
+    document.getElementById(id)?.addEventListener("change", updateModeUI);
+  });
   updateModeUI();
 });
