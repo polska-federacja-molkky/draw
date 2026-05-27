@@ -59,13 +59,15 @@
           <input type="radio" name="basketMode" id="basketsOff" value="off">
           <span class="modeLabel">
             <span class="modeTitle">Bez koszyków</span>
-            <span class="modeDesc">Sama lista nazwisk</span>
+            <span class="modeDesc" id="basketsOffDesc">Sama lista nazwisk</span>
           </span>
         </label>
       </div>
 
       <label id="inputLabel">Koszyki (do wklejenia z Excela):</label>
       <textarea id="input" rows="9"></textarea>
+
+      <p id="flatHint" class="flatHint" hidden>Wskazówka: wpisy typu „Gracz 47” są traktowane jako placeholdery — trafiają do losowych grup w ostatniej rundzie (maks. 1 na grupę).</p>
 
       <div class="buttons">
         <button onclick="startDraw()">Start / Reset</button>

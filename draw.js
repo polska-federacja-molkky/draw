@@ -7,13 +7,24 @@ function basketsEnabled() {
 
 function updateModeUI() {
   const teamMode = document.getElementById("modeTeam")?.checked === true;
+  const useBaskets = basketsEnabled();
+
   const btn = document.getElementById("btnNext");
   if (btn) btn.textContent = teamMode ? "Następna drużyna" : "Następny zawodnik";
 
   const lbl = document.getElementById("inputLabel");
-  if (lbl) lbl.textContent = basketsEnabled()
-    ? "Koszyki (do wklejenia z Excela):"
-    : "Lista zawodników (do wklejenia z Excela):";
+  if (lbl) {
+    if (useBaskets) lbl.textContent = "Koszyki (do wklejenia z Excela):";
+    else lbl.textContent = teamMode
+      ? "Lista drużyn (do wklejenia z Excela):"
+      : "Lista zawodników (do wklejenia z Excela):";
+  }
+
+  const offDesc = document.getElementById("basketsOffDesc");
+  if (offDesc) offDesc.textContent = teamMode ? "Sama lista drużyn" : "Sama lista nazwisk";
+
+  const hint = document.getElementById("flatHint");
+  if (hint) hint.hidden = useBaskets;
 }
 
 
@@ -83,6 +94,11 @@ function cryptoRandomInt() {
 // ======================
 // parsing excel paste
 // ======================
+// Placeholder = wpis "Gracz <numer>" (np. "Gracz 47"), losowany dopiero w ostatniej rundzie
+function isPlaceholderLine(s) {
+  return /^gracz\s*\d+$/i.test(s.trim());
+}
+
 function parseInput(text, teamMode, useBaskets = true) {
   const lines = text.split(/\r?\n/);
   const baskets = [];
@@ -104,6 +120,13 @@ function parseInput(text, teamMode, useBaskets = true) {
     if (!current) {
       current = { label: useBaskets ? "Koszyk 1" : "Lista", players: [] };
       baskets.push(current);
+    }
+
+    // Placeholder "Gracz N" — normalizujemy nazwę i oznaczamy flagą
+    if (isPlaceholderLine(line)) {
+      const num = (line.match(/\d+/) || [""])[0];
+      current.players.push({ name: `Gracz ${num}`, club: "", placeholder: true });
+      continue;
     }
 
     // Tryb drużynowy: cała linia = nazwa drużyny, brak klubu
@@ -288,13 +311,40 @@ function startDraw() {
     parsed.forEach(b => shuffle(b.players, random));
     baskets = parsed;
   } else {
-    // Bez koszyków: tasujemy całą pulę i dzielimy równo round-robin na wiersze po groupCount
+    // Bez koszyków: realni gracze wypełniają pełne rundy, a placeholdery + niedobór
+    // trafiają do OSTATNIEJ rundy w losowych grupach (maks. 1 placeholder na grupę).
     const pool = parsed.flatMap(b => b.players);
-    shuffle(pool, random);
-    baskets = [];
-    for (let i = 0; i < pool.length; i += groupCount) {
-      baskets.push({ label: String(baskets.length + 1), players: pool.slice(i, i + groupCount) });
+    const reals = pool.filter(p => !p.placeholder);
+    const placeholders = pool.filter(p => p.placeholder);
+    shuffle(reals, random);
+    shuffle(placeholders, random);
+
+    const total = reals.length + placeholders.length;
+    const rows = Math.max(1, Math.ceil(total / groupCount));
+    const bodyCells = (rows - 1) * groupCount;
+
+    // Pełne (nie-ostatnie) rundy: najpierw realni; jeśli ich zabraknie (skrajny
+    // przypadek nadmiaru placeholderów) — dopełniamy placeholderami.
+    const leftoverPh = placeholders.slice();
+    const body = [];
+    let realIdx = 0;
+    for (let i = 0; i < bodyCells; i++) {
+      body.push(realIdx < reals.length ? reals[realIdx++] : leftoverPh.shift());
     }
+
+    // Ostatnia runda: pozostali realni + placeholdery, reszta pusta
+    const lastItems = [...reals.slice(realIdx), ...leftoverPh];
+
+    baskets = [];
+    for (let r = 0; r < rows - 1; r++) {
+      baskets.push({ label: String(r + 1), players: body.slice(r * groupCount, (r + 1) * groupCount) });
+    }
+
+    const lastPlayers = Array.from({ length: groupCount }, () => ({ name: "—", club: "—" }));
+    const cols = Array.from({ length: groupCount }, (_, i) => i);
+    shuffle(cols, random);
+    lastItems.forEach((item, i) => { lastPlayers[cols[i]] = item; });
+    baskets.push({ label: String(rows), players: lastPlayers });
   }
 
   const steps = [];
@@ -323,8 +373,12 @@ function startDraw() {
   if (btnExport) btnExport.disabled = false;
   if (btnCopy) btnCopy.disabled = false;
 
+  const placeholderCount = parsed.flatMap(b => b.players).filter(p => p.placeholder).length;
   const modeLabel = teamMode ? "DRUŻYNOWY" : "INDYWIDUALNY";
-  const basketInfo = useBaskets ? `Koszyki=${baskets.length}` : `Bez koszyków, zawodników=${totalPlayers}`;
+  const basketInfo = useBaskets
+    ? `Koszyki=${baskets.length}`
+    : `Bez koszyków, realnych=${totalPlayers - placeholderCount}` +
+      (placeholderCount ? `, placeholderów=${placeholderCount} (ostatnia runda, losowe grupy)` : "");
   addLog(`Start losowania. Tryb: ${modeLabel}. Grupy=${groupCount}. ${basketInfo}.`);
   addLog(`Tryb seeda: ${useExact ? "DOKŁADNY (odtwarzanie)" : "NORMALNY (losowa sól)"}`);
   addLog(`Sól: ${salt}`);
