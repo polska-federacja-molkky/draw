@@ -332,18 +332,19 @@ function startDraw() {
       body.push(realIdx < reals.length ? reals[realIdx++] : leftoverPh.shift());
     }
 
-    // Ostatnia runda: pozostali realni + placeholdery wymieszani razem i rozdawani
-    // po kolei do grup A, B, C... — placeholder "wypada" przy losowej grupie,
-    // a ewentualne wolne miejsca zostają na końcu (grupy z końca).
+    // Ostatnia runda: pozostali realni + placeholdery + puste sloty (dopełnienie
+    // do liczby grup) — wszystko wymieszane i rozdawane po kolei do grup A, B, C...
+    // Dzięki temu zarówno placeholdery, jak i puste miejsca trafiają do losowych
+    // grup (maks. 1 na grupę), zamiast zawsze do końcowych.
     const lastItems = [...reals.slice(realIdx), ...leftoverPh];
+    while (lastItems.length < groupCount) lastItems.push({ name: "—", club: "—" });
     shuffle(lastItems, random);
 
     baskets = [];
     for (let r = 0; r < rows - 1; r++) {
       baskets.push({ label: String(r + 1), players: body.slice(r * groupCount, (r + 1) * groupCount) });
     }
-    const lastPlayers = Array.from({ length: groupCount }, (_, g) => lastItems[g] || { name: "—", club: "—" });
-    baskets.push({ label: String(rows), players: lastPlayers });
+    baskets.push({ label: String(rows), players: lastItems.slice(0, groupCount) });
   }
 
   const steps = [];
