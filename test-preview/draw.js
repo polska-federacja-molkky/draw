@@ -332,12 +332,17 @@ function startDraw() {
       body.push(realIdx < reals.length ? reals[realIdx++] : leftoverPh.shift());
     }
 
-    // Ostatnia runda: pozostali realni + placeholdery + puste sloty (dopełnienie
-    // do liczby grup) — wszystko wymieszane i rozdawane po kolei do grup A, B, C...
-    // Dzięki temu zarówno placeholdery, jak i puste miejsca trafiają do losowych
-    // grup (maks. 1 na grupę), zamiast zawsze do końcowych.
+    // Ostatnia runda: pozostali realni + placeholdery + dopełnienie do liczby grup.
+    // Wolne miejsca zamiast pustych kresek dostają wygenerowane placeholdery
+    // "Gracz N" (numeracja po liczbie wklejonych zawodników). Całość mieszamy
+    // i rozdajemy po kolei do grup A, B, C..., więc placeholdery trafiają do
+    // losowych grup (maks. 1 na grupę).
     const lastItems = [...reals.slice(realIdx), ...leftoverPh];
-    while (lastItems.length < groupCount) lastItems.push({ name: "—", club: "—" });
+    let nextNum = total + 1;
+    while (lastItems.length < groupCount) {
+      lastItems.push({ name: `Gracz ${nextNum}`, club: "", placeholder: true });
+      nextNum++;
+    }
     shuffle(lastItems, random);
 
     baskets = [];
@@ -373,11 +378,13 @@ function startDraw() {
   if (btnExport) btnExport.disabled = false;
   if (btnCopy) btnCopy.disabled = false;
 
-  const placeholderCount = parsed.flatMap(b => b.players).filter(p => p.placeholder).length;
+  const allPlayers = baskets.flatMap(b => b.players);
+  const placeholderCount = allPlayers.filter(p => p.placeholder).length;
+  const realCount = allPlayers.filter(p => !p.placeholder).length;
   const modeLabel = teamMode ? "DRUŻYNOWY" : "INDYWIDUALNY";
   const basketInfo = useBaskets
     ? `Koszyki=${baskets.length}`
-    : `Bez koszyków, realnych=${totalPlayers - placeholderCount}` +
+    : `Bez koszyków, realnych=${realCount}` +
       (placeholderCount ? `, placeholderów=${placeholderCount} (ostatnia runda, losowe grupy)` : "");
   addLog(`Start losowania. Tryb: ${modeLabel}. Grupy=${groupCount}. ${basketInfo}.`);
   addLog(`Tryb seeda: ${useExact ? "DOKŁADNY (odtwarzanie)" : "NORMALNY (losowa sól)"}`);
