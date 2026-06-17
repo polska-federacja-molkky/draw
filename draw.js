@@ -9,9 +9,6 @@ function updateModeUI() {
   const teamMode = document.getElementById("modeTeam")?.checked === true;
   const useBaskets = basketsEnabled();
 
-  const btn = document.getElementById("btnNext");
-  if (btn) btn.textContent = teamMode ? "Następna drużyna" : "Następny zawodnik";
-
   const lbl = document.getElementById("inputLabel");
   if (lbl) {
     if (useBaskets) lbl.textContent = "Koszyki (do wklejenia z Excela):";
@@ -25,6 +22,8 @@ function updateModeUI() {
 
   const hint = document.getElementById("flatHint");
   if (hint) hint.hidden = useBaskets;
+
+  refreshUI();
 }
 
 
@@ -258,6 +257,146 @@ function highlightNext() {
 }
 
 // ======================
+// STATUS + PRIMARY ACTION DISPATCH
+// ======================
+function drawPhase() {
+  if (!STATE.started) return "idle";
+  if (STATE.idx >= STATE.steps.length) return "done";
+  return "drawing";
+}
+
+function setStatus(state, main, sub) {
+  const bar = document.getElementById("statusBar");
+  const mainEl = document.getElementById("statusMain");
+  const subEl  = document.getElementById("statusSub");
+  if (!bar || !mainEl || !subEl) return;
+  bar.classList.remove("statusIdle", "statusDrawing", "statusDone");
+  bar.classList.add("status" + state[0].toUpperCase() + state.slice(1));
+  mainEl.textContent = main;
+  if (sub) { subEl.textContent = sub; subEl.hidden = false; }
+  else { subEl.textContent = ""; subEl.hidden = true; }
+}
+
+function lastAssignmentText() {
+  if (STATE.idx === 0) return "";
+  const s = STATE.steps[STATE.idx - 1];
+  if (!s) return "";
+  const clubPart = s.player.club ? ` [${s.player.club}]` : "";
+  return `Ostatni przydział: ${s.basketLabel} → ${s.groupLabel}: ${s.player.name}${clubPart}`;
+}
+
+function countRealAssigned() {
+  return STATE.baskets
+    .flatMap(b => b.players)
+    .filter(p => p && !p.placeholder && !(p.name === "—" && p.club === "—"))
+    .length;
+}
+
+function refreshUI() {
+  const teamMode = document.getElementById("modeTeam")?.checked === true;
+  const stepLabel = teamMode ? "Losuj następną drużynę" : "Losuj następnego";
+  const noun = teamMode ? "drużyn" : "zawodników";
+
+  const btnPrimary = document.getElementById("btnPrimary");
+  const btnAuto    = document.getElementById("btnAuto");
+  const btnReset   = document.getElementById("btnReset");
+  const btnCopy    = document.getElementById("btnCopy");
+  const btnExport  = document.getElementById("btnExport");
+  if (!btnPrimary) return;
+
+  const phase = drawPhase();
+
+  if (phase === "idle") {
+    btnPrimary.textContent = "Rozpocznij losowanie";
+    btnPrimary.disabled = false;
+    if (btnAuto)   btnAuto.hidden = true;
+    if (btnReset)  btnReset.hidden = true;
+    if (btnCopy)   btnCopy.disabled = true;
+    if (btnExport) btnExport.disabled = true;
+    setStatus("idle", "Gotowe do losowania");
+  } else if (phase === "drawing") {
+    const running = !!autoTimer;
+    btnPrimary.textContent = stepLabel;
+    btnPrimary.disabled = running;
+    if (btnAuto)  { btnAuto.hidden = false; btnAuto.disabled = running; }
+    if (btnReset) { btnReset.hidden = false; btnReset.disabled = running; }
+    if (btnCopy)   btnCopy.disabled = false;
+    if (btnExport) btnExport.disabled = false;
+    setStatus(
+      "drawing",
+      `Losowanie w toku: ${STATE.idx} / ${STATE.steps.length}`,
+      lastAssignmentText()
+    );
+  } else { // done
+    btnPrimary.textContent = "Nowe losowanie";
+    btnPrimary.disabled = false;
+    if (btnAuto)   btnAuto.hidden = true;
+    if (btnReset)  btnReset.hidden = true;
+    if (btnCopy)   btnCopy.disabled = false;
+    if (btnExport) btnExport.disabled = false;
+    setStatus(
+      "done",
+      `Losowanie zakończone: ${countRealAssigned()} ${noun} w ${STATE.groupCount} grupach`
+    );
+  }
+}
+
+function primaryAction() {
+  const phase = drawPhase();
+  if (phase === "idle")    { startDraw();  return; }
+  if (phase === "drawing") { nextStep();   return; }
+  /* done */                 newDraw();
+}
+
+let autoTimer = null;
+function autoFinish() {
+  if (autoTimer) return;
+  if (drawPhase() !== "drawing") return;
+  const btnPrimary = document.getElementById("btnPrimary");
+  const btnAuto    = document.getElementById("btnAuto");
+  if (btnPrimary) btnPrimary.disabled = true;
+  if (btnAuto)    btnAuto.disabled = true;
+  autoTimer = setInterval(() => {
+    if (drawPhase() !== "drawing") {
+      stopAuto();
+      return;
+    }
+    nextStep();
+  }, 60);
+}
+function stopAuto() {
+  if (autoTimer) { clearInterval(autoTimer); autoTimer = null; }
+  const btnAuto = document.getElementById("btnAuto");
+  if (btnAuto) btnAuto.disabled = false;
+  refreshUI();
+}
+
+function newDraw() {
+  stopAuto();
+  STATE = {
+    steps: [], idx: 0, baskets: [], groupCount: 0,
+    started: false, finalSeed: "", salt: "", teamMode: false, useBaskets: true
+  };
+  const wrap = document.getElementById("tableWrap");
+  if (wrap) wrap.innerHTML = "";
+  const log = document.getElementById("log");
+  if (log) log.innerHTML = "";
+  localStorage.removeItem(STORAGE_KEY);
+  refreshUI();
+  document.getElementById("input")?.focus();
+}
+
+function resetDraw() {
+  if (drawPhase() === "idle") return;
+  const inProgress = drawPhase() === "drawing";
+  const msg = inProgress
+    ? "Zresetować trwające losowanie? Postęp i log zostaną usunięte. Wklejone dane i seed pozostają."
+    : "Wyczyścić wynik zakończonego losowania? Tabela i log zostaną usunięte. Wklejone dane i seed pozostają.";
+  if (!confirm(msg)) return;
+  newDraw();
+}
+
+// ======================
 // LOG
 // ======================
 function addLog(text) {
@@ -369,13 +508,6 @@ function startDraw() {
 
   STATE = { steps, idx: 0, baskets, groupCount, started: true, finalSeed, salt, teamMode, useBaskets };
 
-  const btnNext = document.getElementById("btnNext");
-  const btnExport = document.getElementById("btnExport");
-  const btnCopy = document.getElementById("btnCopy");
-  if (btnNext) btnNext.disabled = false;
-  if (btnExport) btnExport.disabled = false;
-  if (btnCopy) btnCopy.disabled = false;
-
   const allPlayers = baskets.flatMap(b => b.players);
   const placeholderCount = allPlayers.filter(p => p.placeholder).length;
   const realCount = allPlayers.filter(p => !p.placeholder).length;
@@ -390,6 +522,7 @@ function startDraw() {
   addLog(`Seed końcowy użyty do losowania (AUDYT): ${finalSeed}`);
 
   highlightNext();
+  refreshUI();
   saveState();
 }
 
@@ -426,13 +559,13 @@ function nextStep() {
   }
 
   highlightNext();
+  refreshUI();
   saveState();
 }
 
 function finalizeDraw() {
   addLog("Losowanie zakończone.");
-  const btnNext = document.getElementById("btnNext");
-  if (btnNext) btnNext.disabled = true;
+  stopAuto();
 }
 
 // ======================
@@ -657,19 +790,12 @@ function loadState() {
   const logEl = document.getElementById("log");
   if (logEl) logEl.innerHTML = payload.logHtml || "";
 
-  const btnNext   = document.getElementById("btnNext");
-  const btnExport = document.getElementById("btnExport");
-  const btnCopy   = document.getElementById("btnCopy");
-
-  if (btnNext)   btnNext.disabled   = (STATE.idx >= STATE.steps.length);
-  if (btnExport) btnExport.disabled = false;
-  if (btnCopy)   btnCopy.disabled   = false;
-
   addLog(`Przywrócono stan po odświeżeniu (krok ${STATE.idx}/${STATE.steps.length}).`);
   if (STATE.salt)      addLog(`Sół: ${STATE.salt}`);
   if (STATE.finalSeed) addLog(`Seed końcowy użyty do losowania (AUDYT): ${STATE.finalSeed}`);
 
   highlightNext();
+  refreshUI();
   return true;
 }
 

@@ -69,9 +69,18 @@
 
       <p id="flatHint" class="flatHint" hidden>Wskazówka: wklej samych zawodników. Liczba rund i placeholderów wynika z podziału graczy na grupy — brakujące miejsca są automatycznie uzupełniane wpisami „Gracz N” w losowych grupach (maks. 1 na grupę).</p>
 
+      <div id="statusBar" class="statusBar statusIdle">
+        <span id="statusMain" class="statusMain" role="status" aria-live="polite">Gotowe do losowania</span>
+        <span id="statusSub" class="statusSub" aria-live="polite" hidden></span>
+      </div>
+
       <div class="buttons">
-        <button onclick="startDraw()">Start / Reset</button>
-        <button id="btnNext" onclick="nextStep()" disabled>Następny zawodnik</button>
+        <button id="btnPrimary" onclick="primaryAction()">Rozpocznij losowanie</button>
+        <button id="btnAuto" class="btnGhost" onclick="autoFinish()" hidden>Dokończ automatycznie</button>
+        <button id="btnReset" class="btnGhost btnDanger" onclick="resetDraw()" hidden>Resetuj losowanie</button>
+      </div>
+
+      <div class="buttons">
         <button id="btnCopy" onclick="copyResultsToClipboard()" disabled>Kopiuj wyniki (Excel)</button>
       </div>
 
