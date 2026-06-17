@@ -211,10 +211,11 @@ function validateInput() {
   }
 
   // ostrzeżenia (pozwalają losować)
+  // Duplikaty — pomijamy placeholdery "X" (ręczne znaczniki pustych miejsc)
   const seen = new Map();
   for (const p of reals) {
     const key = p.name.trim().toLowerCase();
-    if (!key) continue;
+    if (!key || key === "x") continue;
     if (!seen.has(key)) seen.set(key, { name: p.name.trim(), lines: [] });
     seen.get(key).lines.push(p.line);
   }
@@ -224,16 +225,6 @@ function validateInput() {
     result.warnings.push(
       `Możliwe duplikaty — ${dups.length} ${plural(dups.length, ["pozycja", "pozycje", "pozycji"])}: ${sample}${dups.length > 4 ? " …" : ""}`
     );
-  }
-
-  if (!teamMode) {
-    const noClub = reals.filter(p => !p.club || p.club === "-");
-    if (noClub.length) {
-      const sampleLines = noClub.slice(0, 8).map(p => p.line).join(", ");
-      result.warnings.push(
-        `${noClub.length} ${plural(noClub.length, ["linia", "linie", "linii"])} bez rozpoznanego klubu (linie ${sampleLines}${noClub.length > 8 ? " …" : ""}).`
-      );
-    }
   }
 
   return result;
