@@ -241,8 +241,17 @@ button:disabled {
   cursor: default;
 }
 
-#btnPrimary {
-  min-width: 200px;
+.buttons.primaryRow {
+  margin-top: 14px;
+}
+.buttons.primaryRow button {
+  width: 100%;
+  padding: 11px 14px;
+  font-size: 14px;
+}
+.buttons.actionsRow button {
+  flex: 1 1 0;
+  min-width: 0;
 }
 
 button.btnGhost {
@@ -292,7 +301,7 @@ summary:focus-visible {
 }
 
 .log {
-  height: 360px;
+  height: 200px;
   overflow-y: auto;
   font-size: 12.5px;
   line-height: 1.6;
