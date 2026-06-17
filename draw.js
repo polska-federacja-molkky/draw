@@ -524,45 +524,221 @@ function finalizeDraw() {
 // EXPORT: TSV (plik, Excel-friendly)
 // Bugfix: każda grupa zawsze zajmuje dokładnie 2 kolumny (nazwa + klub)
 // ======================
-function buildExportMatrix() {
-  const basketsCount = STATE.baskets.length;
-  const groupCount = STATE.groupCount;
-
-  // Każda komórka to tablica [nazwa, klub] — zawsze 2 elementy
-  const matrix = Array.from({ length: basketsCount }, () =>
-    Array.from({ length: groupCount }, () => ["", ""])
-  );
-
+// Wynik pogrupowany: perGroup[g] = [{name, club}, ...] w kolejności losowania.
+// Wspólne dla kopiowania do schowka i eksportu XLSX.
+function resultPerGroup() {
+  const perGroup = Array.from({ length: STATE.groupCount }, () => []);
   for (const s of STATE.steps) {
-    const isEmpty = (s.player.name === "—" && s.player.club === "—");
-    matrix[s.basketIndex][s.groupIndex] = isEmpty
-      ? ["", ""]
-      : [s.player.name, s.player.club || ""];
+    if (s.player && s.player.name && s.player.name !== "—") {
+      perGroup[s.groupIndex].push({ name: s.player.name, club: s.player.club || "" });
+    }
   }
-
-  return matrix;
+  return perGroup;
 }
 
-function matrixToTSV(matrix) {
-  const rows = [];
+// ======================
+// EXPORT: XLSX (siatka kart 4-w-rzędzie, jak w arkuszu turniejowym)
+// Samodzielny generator bez bibliotek: pliki XML pakowane do ZIP metodą
+// "store" (bez kompresji) z poprawnym CRC32. Polskie znaki w UTF-8.
+// ======================
+const GROUPS_PER_ROW = 4;
 
-  // Nagłówek: Grupa A, (puste na klub), Grupa B, ...
-  const headerCols = ["Koszyk"];
+function colLetters1(n) {
+  let s = "";
+  while (n > 0) { const r = (n - 1) % 26; s = String.fromCharCode(65 + r) + s; n = Math.floor((n - 1) / 26); }
+  return s;
+}
+
+function xmlEsc(str) {
+  return String(str)
+    .replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;").replaceAll("'", "&apos;");
+}
+
+function buildSheetXml() {
+  const perGroup = resultPerGroup();
+  const groups = [];
   for (let g = 0; g < STATE.groupCount; g++) {
-    headerCols.push(groupLabel(g), STATE.teamMode ? "" : "Klub");
+    groups.push({ label: `Grupa ${excelLetters(g)}`, players: perGroup[g] });
   }
-  rows.push(headerCols.join("\t"));
 
-  for (let b = 0; b < matrix.length; b++) {
-    const basketName = STATE.baskets[b].label;
-    const rowCols = [basketName];
-    for (let g = 0; g < STATE.groupCount; g++) {
-      rowCols.push(...matrix[b][g]); // zawsze 2 wartości
+  const cells = [];   // {r, c, v, s}
+  const merges = [];
+  let rowCursor = 1;
+
+  for (let start = 0; start < groups.length; start += GROUPS_PER_ROW) {
+    const block = groups.slice(start, start + GROUPS_PER_ROW);
+    const headerRow = rowCursor;
+    const maxPlayers = Math.max(0, ...block.map(g => g.players.length));
+
+    block.forEach((grp, p) => {
+      const nameCol = 2 + p * 3;   // A=margines, potem nazwa/klub/odstęp
+      const clubCol = 3 + p * 3;
+      cells.push({ r: headerRow, c: nameCol, v: grp.label, s: 1 });
+      cells.push({ r: headerRow, c: clubCol, v: "", s: 1 });
+      merges.push(`${colLetters1(nameCol)}${headerRow}:${colLetters1(clubCol)}${headerRow}`);
+      grp.players.forEach((pl, ri) => {
+        const r = headerRow + 1 + ri;
+        cells.push({ r, c: nameCol, v: pl.name, s: 2 });
+        cells.push({ r, c: clubCol, v: pl.club, s: 3 });
+      });
+    });
+
+    rowCursor = headerRow + 1 + maxPlayers + 1; // +1 wiersz odstępu między rzędami kart
+  }
+
+  const colCount = 1 + GROUPS_PER_ROW * 3;
+  let colsXml = "<cols>";
+  for (let c = 1; c <= colCount; c++) {
+    const pos = (c - 2) % 3; // dla c>=2: 0=nazwa, 1=klub, 2=odstęp
+    const w = c < 2 ? 2.5 : (pos === 0 ? 24 : pos === 1 ? 6.5 : 2.5);
+    colsXml += `<col min="${c}" max="${c}" width="${w}" customWidth="1"/>`;
+  }
+  colsXml += "</cols>";
+
+  const byRow = new Map();
+  for (const cell of cells) {
+    if (!byRow.has(cell.r)) byRow.set(cell.r, []);
+    byRow.get(cell.r).push(cell);
+  }
+  let sheetRows = "";
+  for (const r of [...byRow.keys()].sort((a, b) => a - b)) {
+    const rowCells = byRow.get(r).sort((a, b) => a.c - b.c);
+    let cellsXml = "";
+    for (const cell of rowCells) {
+      const ref = `${colLetters1(cell.c)}${r}`;
+      cellsXml += (cell.v === "" || cell.v == null)
+        ? `<c r="${ref}" s="${cell.s}"/>`
+        : `<c r="${ref}" s="${cell.s}" t="inlineStr"><is><t xml:space="preserve">${xmlEsc(cell.v)}</t></is></c>`;
     }
-    rows.push(rowCols.join("\t"));
+    sheetRows += `<row r="${r}">${cellsXml}</row>`;
   }
 
-  return rows.join("\n");
+  const mergeXml = merges.length
+    ? `<mergeCells count="${merges.length}">${merges.map(m => `<mergeCell ref="${m}"/>`).join("")}</mergeCells>`
+    : "";
+
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+    `<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">` +
+    colsXml + `<sheetData>${sheetRows}</sheetData>` + mergeXml + `</worksheet>`;
+}
+
+const XLSX_CONTENT_TYPES = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+  `<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">` +
+  `<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>` +
+  `<Default Extension="xml" ContentType="application/xml"/>` +
+  `<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>` +
+  `<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>` +
+  `<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>` +
+  `</Types>`;
+
+const XLSX_ROOT_RELS = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+  `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` +
+  `<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>` +
+  `</Relationships>`;
+
+const XLSX_WORKBOOK = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+  `<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">` +
+  `<sheets><sheet name="Wynik losowania" sheetId="1" r:id="rId1"/></sheets></workbook>`;
+
+const XLSX_WORKBOOK_RELS = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+  `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` +
+  `<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>` +
+  `<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>` +
+  `</Relationships>`;
+
+const XLSX_STYLES = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+  `<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">` +
+  `<fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts>` +
+  `<fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>` +
+  `<fill><patternFill patternType="solid"><fgColor rgb="FFC0141C"/><bgColor indexed="64"/></patternFill></fill></fills>` +
+  `<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border>` +
+  `<border><left style="thin"><color rgb="FF808080"/></left><right style="thin"><color rgb="FF808080"/></right><top style="thin"><color rgb="FF808080"/></top><bottom style="thin"><color rgb="FF808080"/></bottom><diagonal/></border></borders>` +
+  `<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>` +
+  `<cellXfs count="4">` +
+  `<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>` +
+  `<xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>` +
+  `<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center"/></xf>` +
+  `<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>` +
+  `</cellXfs>` +
+  `<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>` +
+  `</styleSheet>`;
+
+const CRC_TABLE = (() => {
+  const t = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+    t[n] = c >>> 0;
+  }
+  return t;
+})();
+function crc32(bytes) {
+  let c = 0xFFFFFFFF;
+  for (let i = 0; i < bytes.length; i++) c = CRC_TABLE[(c ^ bytes[i]) & 0xFF] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+function concatBytes(list) {
+  let len = 0; for (const a of list) len += a.length;
+  const out = new Uint8Array(len); let p = 0;
+  for (const a of list) { out.set(a, p); p += a.length; }
+  return out;
+}
+function zipStore(files) {
+  const enc = new TextEncoder();
+  const u16 = v => new Uint8Array([v & 255, (v >>> 8) & 255]);
+  const u32 = v => new Uint8Array([v & 255, (v >>> 8) & 255, (v >>> 16) & 255, (v >>> 24) & 255]);
+  const locals = [];
+  const centrals = [];
+  let offset = 0;
+  for (const f of files) {
+    const nameBytes = enc.encode(f.name);
+    const data = typeof f.data === "string" ? enc.encode(f.data) : f.data;
+    const crc = crc32(data);
+    const size = data.length;
+    const local = concatBytes([
+      u32(0x04034b50), u16(20), u16(0), u16(0), u16(0), u16(0),
+      u32(crc), u32(size), u32(size), u16(nameBytes.length), u16(0),
+      nameBytes, data
+    ]);
+    locals.push(local);
+    centrals.push(concatBytes([
+      u32(0x02014b50), u16(20), u16(20), u16(0), u16(0), u16(0), u16(0),
+      u32(crc), u32(size), u32(size), u16(nameBytes.length), u16(0), u16(0),
+      u16(0), u16(0), u32(0), u32(offset), nameBytes
+    ]));
+    offset += local.length;
+  }
+  const central = concatBytes(centrals);
+  const eocd = concatBytes([
+    u32(0x06054b50), u16(0), u16(0), u16(files.length), u16(files.length),
+    u32(central.length), u32(offset), u16(0)
+  ]);
+  return concatBytes([...locals, central, eocd]);
+}
+
+function exportXLSX() {
+  if (!STATE.started) return alert("Najpierw rozpocznij losowanie.");
+  const files = [
+    { name: "[Content_Types].xml", data: XLSX_CONTENT_TYPES },
+    { name: "_rels/.rels", data: XLSX_ROOT_RELS },
+    { name: "xl/workbook.xml", data: XLSX_WORKBOOK },
+    { name: "xl/_rels/workbook.xml.rels", data: XLSX_WORKBOOK_RELS },
+    { name: "xl/styles.xml", data: XLSX_STYLES },
+    { name: "xl/worksheets/sheet1.xml", data: buildSheetXml() }
+  ];
+  const blob = new Blob([zipStore(files)], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+  const stamp = new Date().toISOString().slice(0, 19).replaceAll(":", "-");
+  downloadBlob(`losowanie_${stamp}.xlsx`, blob);
+  addLog("Pobrano wynik do pliku XLSX.");
+}
+
+function downloadBlob(filename, blob) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
 }
 
 function downloadText(filename, text, mime = "text/plain;charset=utf-8") {
@@ -577,31 +753,14 @@ function downloadText(filename, text, mime = "text/plain;charset=utf-8") {
   URL.revokeObjectURL(url);
 }
 
-function exportTSV() {
-  if (!STATE.started) return alert("Najpierw kliknij Start.");
-  const matrix = buildExportMatrix();
-  const tsv = matrixToTSV(matrix);
-  const stamp = new Date().toISOString().slice(0, 19).replaceAll(":", "-");
-  downloadText(`losowanie_${stamp}.tsv`, tsv, "text/tab-separated-values;charset=utf-8");
-  addLog("Wyeksportowano TSV do pliku.");
-}
-
 // ======================
 // COPY RESULTS TO CLIPBOARD
 // ======================
 async function copyResultsToClipboard() {
-  if (!STATE || !STATE.started) return alert("Najpierw kliknij Start.");
+  if (!STATE || !STATE.started) return alert("Najpierw rozpocznij losowanie.");
 
   const groups = STATE.groupCount;
-
-  const perGroup = Array.from({ length: groups }, () => []);
-
-  for (const s of STATE.steps) {
-    if (s.player && s.player.name && s.player.name !== "—") {
-      perGroup[s.groupIndex].push({ name: s.player.name, club: s.player.club || "" });
-    }
-  }
-
+  const perGroup = resultPerGroup();
   const maxRows = Math.max(0, ...perGroup.map(g => g.length));
   const lines = [];
 
@@ -630,8 +789,8 @@ async function copyResultsToClipboard() {
     await navigator.clipboard.writeText(tsv);
     addLog("Skopiowano wyniki do schowka (Excel). Wklej w Excelu w A1 jako wartości.");
   } catch (e) {
-    addLog("Kopiowanie do schowka zablokowane — użyj eksportu TSV do pliku.");
-    alert("Kopiowanie do schowka zablokowane. Użyj 'Eksport TSV'.");
+    addLog("Kopiowanie do schowka zablokowane — użyj przycisku „Pobierz Excel”.");
+    alert("Kopiowanie do schowka zablokowane. Użyj „Pobierz Excel”.");
   }
 }
 
