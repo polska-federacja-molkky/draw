@@ -21,13 +21,16 @@ body {
 
 .topGrid {
   display: grid;
-  grid-template-columns: 520px 1fr;
+  grid-template-columns: minmax(420px, 460px) 1fr;
   gap: 16px;
   align-items: start;
 }
 
-.controlsPanel,
-.logPanel {
+@media (max-width: 980px) {
+  .topGrid { grid-template-columns: 1fr; }
+}
+
+.controlsPanel {
   background: #ffffff;
   border: 1px solid #e2e4e8;
   border-radius: 10px;
@@ -379,13 +382,44 @@ summary:focus-visible {
 }
 
 .tableSection {
-  margin-top: 20px;
+  margin-top: 0;
   background: #ffffff;
   border: 1px solid #e2e4e8;
   border-radius: 10px;
   padding: 16px 20px;
   box-shadow: 0 1px 4px rgba(0,0,0,.06);
+  min-width: 0;
 }
+
+.tablePlaceholder {
+  margin: 0;
+  padding: 28px 8px;
+  text-align: center;
+  color: #6b6e76;
+  font-size: 13px;
+}
+
+.logDetails {
+  margin-top: 16px;
+  background: #ffffff;
+  border: 1px solid #e2e4e8;
+  border-radius: 10px;
+  padding: 10px 16px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.06);
+}
+.logDetails > summary {
+  cursor: pointer;
+  color: #1a2448;
+  font-weight: 700;
+  font-size: 13px;
+  user-select: none;
+  padding: 4px 0;
+  list-style: none;
+}
+.logDetails > summary::-webkit-details-marker { display: none; }
+.logDetails > summary::before { content: "▸ "; color: #c0141c; }
+.logDetails[open] > summary::before { content: "▾ "; }
+.logDetails > summary:hover { color: #c0141c; }
 
 .tableSection h2 {
   margin: 0 0 14px;
