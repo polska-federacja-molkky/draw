@@ -103,8 +103,9 @@ function parseInput(text, teamMode, useBaskets = true) {
   const baskets = [];
   let current = null;
 
-  for (const rawLine of lines) {
-    const line = rawLine.trim();
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    const lineNo = i + 1;
     if (!line) continue;
 
     if (/^KOSZYK\b/i.test(line)) {
@@ -124,13 +125,13 @@ function parseInput(text, teamMode, useBaskets = true) {
     // Placeholder "Gracz N" — normalizujemy nazwę i oznaczamy flagą
     if (isPlaceholderLine(line)) {
       const num = (line.match(/\d+/) || [""])[0];
-      current.players.push({ name: `Gracz ${num}`, club: "", placeholder: true });
+      current.players.push({ name: `Gracz ${num}`, club: "", placeholder: true, line: lineNo });
       continue;
     }
 
     // Tryb drużynowy: cała linia = nazwa drużyny, brak klubu
     if (teamMode) {
-      current.players.push({ name: line, club: "" });
+      current.players.push({ name: line, club: "", line: lineNo });
       continue;
     }
 
@@ -156,10 +157,107 @@ function parseInput(text, teamMode, useBaskets = true) {
       }
     }
 
-    current.players.push({ name, club });
+    current.players.push({ name, club, line: lineNo });
   }
 
   return baskets;
+}
+
+// ======================
+// WALIDACJA DANYCH WEJŚCIOWYCH (inline, nieblokująca prócz błędów krytycznych)
+// ======================
+function plural(n, forms) {
+  if (n === 1) return forms[0];
+  const m10 = n % 10, m100 = n % 100;
+  if (m10 >= 2 && m10 <= 4 && !(m100 >= 12 && m100 <= 14)) return forms[1];
+  return forms[2];
+}
+
+function validateInput() {
+  const text = document.getElementById("input")?.value.trim() ?? "";
+  const teamMode = document.getElementById("modeTeam")?.checked === true;
+  const useBaskets = basketsEnabled();
+  const groupCount = parseInt(document.getElementById("groupCount")?.value, 10);
+
+  const result = { empty: !text, counts: null, warnings: [], errors: [] };
+  if (!text) return result;
+
+  const parsed = parseInput(text, teamMode, useBaskets);
+  const players = parsed.flatMap(b => b.players);
+  const reals = players.filter(p => !p.placeholder);
+  const unit = teamMode ? ["drużyna", "drużyny", "drużyn"] : ["uczestnik", "uczestnicy", "uczestników"];
+
+  // liczniki
+  const clubs = teamMode ? [] : [...new Set(reals.map(p => p.club).filter(c => c && c !== "-"))];
+  const parts = [`${reals.length} ${plural(reals.length, unit)}`];
+  if (useBaskets) parts.push(`${parsed.length} ${plural(parsed.length, ["koszyk", "koszyki", "koszyków"])}`);
+  if (groupCount >= 2) parts.push(`${groupCount} ${plural(groupCount, ["grupa", "grupy", "grup"])}`);
+  if (!teamMode && clubs.length) parts.push(`${clubs.length} ${plural(clubs.length, ["klub", "kluby", "klubów"])}`);
+  result.counts = parts.join(" · ");
+
+  // błędy krytyczne (blokują start)
+  if (!groupCount || groupCount < 2) {
+    result.errors.push("Podaj liczbę grup (min. 2).");
+  }
+  if (!reals.length) {
+    result.errors.push(teamMode ? "Brak drużyn na liście." : "Brak uczestników na liście.");
+  }
+  if (useBaskets && groupCount >= 2) {
+    parsed
+      .filter(b => b.players.length > groupCount)
+      .forEach(b => result.errors.push(
+        `${b.label} ma więcej osób (${b.players.length}) niż grup (${groupCount}). Zmniejsz koszyk lub zwiększ liczbę grup.`
+      ));
+  }
+
+  // ostrzeżenia (pozwalają losować)
+  const seen = new Map();
+  for (const p of reals) {
+    const key = p.name.trim().toLowerCase();
+    if (!key) continue;
+    if (!seen.has(key)) seen.set(key, { name: p.name.trim(), lines: [] });
+    seen.get(key).lines.push(p.line);
+  }
+  const dups = [...seen.values()].filter(x => x.lines.length > 1);
+  if (dups.length) {
+    const sample = dups.slice(0, 4).map(d => `${d.name} (linie ${d.lines.join(", ")})`).join("; ");
+    result.warnings.push(
+      `Możliwe duplikaty — ${dups.length} ${plural(dups.length, ["pozycja", "pozycje", "pozycji"])}: ${sample}${dups.length > 4 ? " …" : ""}`
+    );
+  }
+
+  if (!teamMode) {
+    const noClub = reals.filter(p => !p.club || p.club === "-");
+    if (noClub.length) {
+      const sampleLines = noClub.slice(0, 8).map(p => p.line).join(", ");
+      result.warnings.push(
+        `${noClub.length} ${plural(noClub.length, ["linia", "linie", "linii"])} bez rozpoznanego klubu (linie ${sampleLines}${noClub.length > 8 ? " …" : ""}).`
+      );
+    }
+  }
+
+  return result;
+}
+
+function renderValidation() {
+  const panel = document.getElementById("validationPanel");
+  if (!panel) return null;
+
+  // Panel walidacji ma sens tylko przed losowaniem
+  if (drawPhase() !== "idle") { panel.hidden = true; panel.innerHTML = ""; return null; }
+
+  const v = validateInput();
+  if (v.empty) { panel.hidden = true; panel.innerHTML = ""; return v; }
+
+  let html = "";
+  if (v.counts) html += `<div class="vRow vCounts">Wykryto: ${escapeHtml(v.counts)}</div>`;
+  for (const e of v.errors)   html += `<div class="vRow vError">✗ ${escapeHtml(e)}</div>`;
+  for (const w of v.warnings) html += `<div class="vRow vWarn">⚠ ${escapeHtml(w)}</div>`;
+
+  panel.className = "validationPanel" + (v.errors.length ? " hasError" : v.warnings.length ? " hasWarn" : " ok");
+  panel.innerHTML = html;
+  panel.hidden = false;
+  return v;
 }
 
 // ======================
@@ -310,6 +408,7 @@ function refreshUI() {
     if (btnCopy)   btnCopy.disabled = true;
     if (btnExport) btnExport.disabled = true;
     setStatus("idle", "Gotowe do losowania");
+    renderValidation();
   } else if (phase === "drawing") {
     btnPrimary.textContent = "Losuj dalej";
     if (btnReset)  btnReset.hidden = false;
@@ -383,28 +482,15 @@ function startDraw() {
   const teamMode = document.getElementById("modeTeam")?.checked === true;
   const useBaskets = basketsEnabled();
 
-  if (!text) return alert("Brak danych z Excela.");
-  if (!groupCount || groupCount < 2) return alert("Podaj poprawną liczbę grup (min 2).");
+  // Bramka walidacji: błędy krytyczne blokują start (komunikat w panelu, nie alert)
+  const v = renderValidation();
+  if (v && v.errors.length) {
+    document.getElementById("validationPanel")?.scrollIntoView({ block: "nearest" });
+    document.getElementById("input")?.focus();
+    return;
+  }
 
   const parsed = parseInput(text, teamMode, useBaskets);
-  const totalPlayers = parsed.reduce((s, b) => s + b.players.length, 0);
-
-  if (useBaskets) {
-    if (!parsed.length) return alert("Nie wykryto żadnego koszyka (nagłówki 'KOSZYK X').");
-
-    const tooBig = parsed
-      .map(b => ({ label: b.label, n: b.players.length }))
-      .filter(x => x.n > groupCount);
-
-    if (tooBig.length) {
-      return alert(
-        "Błąd: w niektórych koszykach jest więcej osób niż liczba grup.\n" +
-        tooBig.map(x => `${x.label}: ${x.n} > ${groupCount}`).join("\n")
-      );
-    }
-  } else if (!totalPlayers) {
-    return alert("Brak zawodników na liście.");
-  }
 
   // Losowy seed wewnętrzny — każde losowanie jest niezależne i nieprzewidywalne.
   const salt = `${new Date().toISOString()}-${cryptoRandomInt()}`;
@@ -914,5 +1000,7 @@ document.addEventListener("DOMContentLoaded", () => {
   ["modeSingle", "modeTeam", "basketsOn", "basketsOff"].forEach(id => {
     document.getElementById(id)?.addEventListener("change", updateModeUI);
   });
+  document.getElementById("input")?.addEventListener("input", renderValidation);
+  document.getElementById("groupCount")?.addEventListener("input", renderValidation);
   updateModeUI();
 });
