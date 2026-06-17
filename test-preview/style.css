@@ -186,6 +186,23 @@ textarea {
   margin: 6px 0 0;
 }
 
+.validationPanel {
+  margin-top: 8px;
+  padding: 8px 11px;
+  border-radius: 8px;
+  border: 1px solid #d0d3da;
+  background: #f7f8fc;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+.validationPanel.ok       { border-color: #bfe6cd; background: #f1f9f3; }
+.validationPanel.hasWarn  { border-color: #e6d28f; background: #fdf7e6; }
+.validationPanel.hasError { border-color: #e3a6aa; background: #fdebec; }
+.vRow { padding: 1px 0; }
+.vCounts { font-weight: 700; color: #1a2448; }
+.vWarn  { color: #7a5d05; }
+.vError { color: #a01018; font-weight: 600; }
+
 .statusBar {
   display: flex;
   flex-direction: column;
