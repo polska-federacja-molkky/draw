@@ -81,6 +81,7 @@
       </div>
 
       <div class="buttons actionsRow">
+        <button id="btnRestart" class="btnGhost" onclick="newDrawConfirm()" hidden>Nowe losowanie</button>
         <button id="btnReset" class="btnGhost btnDanger" onclick="resetDraw()" hidden>Resetuj</button>
         <button id="btnCopy" class="btnGhost" onclick="copyResultsToClipboard()" disabled>Kopiuj do Excela</button>
         <button id="btnExport" class="btnGhost" onclick="exportXLSX()" disabled>Pobierz Excel (.xlsx)</button>
@@ -95,18 +96,18 @@
       </details>
     </div>
 
-    <!-- PRAWA: LOG -->
-    <div class="logPanel">
-      <h2>Przebieg losowania</h2>
-      <div id="log" class="log"></div>
-    </div>
+    <!-- PRAWA: WYNIK -->
+    <section class="tableSection">
+      <h2>Wynik losowania</h2>
+      <div id="tableWrap"></div>
+    </section>
 
   </section>
 
-  <section class="tableSection">
-    <h2>Wynik losowania</h2>
-    <div id="tableWrap"></div>
-  </section>
+  <details class="logDetails">
+    <summary>Przebieg losowania</summary>
+    <div id="log" class="log"></div>
+  </details>
 </div>
 
 <script src="draw.js"></script>

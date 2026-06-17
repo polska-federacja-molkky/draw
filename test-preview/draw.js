@@ -395,6 +395,7 @@ function refreshUI() {
   const noun = teamMode ? "drużyn" : "uczestników";
 
   const btnPrimary = document.getElementById("btnPrimary");
+  const btnRestart = document.getElementById("btnRestart");
   const btnReset   = document.getElementById("btnReset");
   const btnCopy    = document.getElementById("btnCopy");
   const btnExport  = document.getElementById("btnExport");
@@ -404,26 +405,35 @@ function refreshUI() {
 
   if (phase === "idle") {
     btnPrimary.textContent = "Rozpocznij losowanie";
-    if (btnReset)  btnReset.hidden = true;
-    if (btnCopy)   btnCopy.disabled = true;
-    if (btnExport) btnExport.disabled = true;
+    btnPrimary.disabled = false;
+    if (btnRestart) btnRestart.hidden = true;
+    if (btnReset)   btnReset.hidden = true;
+    if (btnCopy)    btnCopy.disabled = true;
+    if (btnExport)  btnExport.disabled = true;
+    setTablePlaceholder();
     setStatus("idle", "Gotowe do losowania");
     renderValidation();
   } else if (phase === "drawing") {
     btnPrimary.textContent = "Losuj dalej";
-    if (btnReset)  btnReset.hidden = false;
-    if (btnCopy)   btnCopy.disabled = false;
-    if (btnExport) btnExport.disabled = false;
+    btnPrimary.disabled = false;
+    if (btnRestart) btnRestart.hidden = true;
+    if (btnReset)   btnReset.hidden = false;
+    if (btnCopy)    btnCopy.disabled = false;
+    if (btnExport)  btnExport.disabled = false;
     setStatus(
       "drawing",
       `Losowanie w toku: ${STATE.idx} / ${STATE.steps.length}`,
       lastAssignmentText()
     );
   } else { // done
-    btnPrimary.textContent = "Nowe losowanie";
-    if (btnReset)  btnReset.hidden = false;
-    if (btnCopy)   btnCopy.disabled = false;
-    if (btnExport) btnExport.disabled = false;
+    // Przycisk główny nieaktywny, żeby z rozpędu nie kliknąć restartu.
+    // "Nowe losowanie" to osobny, mniej eksponowany guzik z potwierdzeniem.
+    btnPrimary.textContent = "Losowanie zakończone ✓";
+    btnPrimary.disabled = true;
+    if (btnRestart) btnRestart.hidden = false;
+    if (btnReset)   btnReset.hidden = false;
+    if (btnCopy)    btnCopy.disabled = false;
+    if (btnExport)  btnExport.disabled = false;
     setStatus(
       "done",
       `Losowanie zakończone: ${countRealAssigned()} ${noun} w ${STATE.groupCount} grupach`
@@ -433,9 +443,22 @@ function refreshUI() {
 
 function primaryAction() {
   const phase = drawPhase();
-  if (phase === "idle")    { startDraw();  return; }
-  if (phase === "drawing") { nextStep();   return; }
-  /* done */                 newDraw();
+  if (phase === "idle")    { startDraw(); return; }
+  if (phase === "drawing") { nextStep();  return; }
+  /* done: przycisk nieaktywny — brak akcji */
+}
+
+function newDrawConfirm() {
+  if (drawPhase() !== "done") return;
+  if (!confirm("Rozpocząć nowe losowanie na tych samych danych? Obecny wynik zostanie zastąpiony nowym.")) return;
+  startDraw();
+}
+
+function setTablePlaceholder() {
+  const wrap = document.getElementById("tableWrap");
+  if (wrap && !wrap.querySelector("table")) {
+    wrap.innerHTML = `<p class="tablePlaceholder">Tu pojawi się wynik losowania po kliknięciu „Rozpocznij losowanie”.</p>`;
+  }
 }
 
 function newDraw() {
