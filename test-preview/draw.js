@@ -98,6 +98,33 @@ function isPlaceholderLine(s) {
   return /^gracz\s*\d+$/i.test(s.trim());
 }
 
+// Ręczny znacznik pustego miejsca w koszyku — pojedyncze "X".
+// Bierze udział w losowaniu (zajmuje slot), ale nie jest realnym uczestnikiem,
+// więc nie wlicza się do liczby uczestników.
+function isEmptyMarker(name) {
+  return typeof name === "string" && name.trim().toLowerCase() === "x";
+}
+
+// Renderuje zawartość komórki w układzie trójwierszowym:
+// imię / nazwisko / klub. Pionowo mamy dużo miejsca, więc rozbicie nazwiska
+// na osobny wiersz pozwala na większą, czytelniejszą czcionkę.
+function cellMarkup(name, club) {
+  const isEmpty = (name === "—" && club === "—");
+  if (isEmpty) {
+    return `<div class="cell empty"><span class="firstName">—</span></div>`;
+  }
+  const trimmed = (name || "").trim();
+  const sp = trimmed.indexOf(" ");
+  const first = sp > 0 ? trimmed.slice(0, sp) : trimmed;
+  const last  = sp > 0 ? trimmed.slice(sp + 1) : "";
+  const clubStr = club && club !== "-" ? club : "";
+  return `<div class="cell filled">` +
+    `<span class="firstName">${escapeHtml(first)}</span>` +
+    (last ? `<span class="lastName">${escapeHtml(last)}</span>` : "") +
+    (clubStr ? `<span class="club">${escapeHtml(clubStr)}</span>` : "") +
+    `</div>`;
+}
+
 function parseInput(text, teamMode, useBaskets = true) {
   const lines = text.split(/\r?\n/);
   const baskets = [];
@@ -185,11 +212,13 @@ function validateInput() {
   const parsed = parseInput(text, teamMode, useBaskets);
   const players = parsed.flatMap(b => b.players);
   const reals = players.filter(p => !p.placeholder);
+  // "X" zajmuje slot w koszyku, ale nie jest uczestnikiem — pomijamy w liczniku.
+  const counted = reals.filter(p => !isEmptyMarker(p.name));
   const unit = teamMode ? ["drużyna", "drużyny", "drużyn"] : ["uczestnik", "uczestnicy", "uczestników"];
 
   // liczniki
-  const clubs = teamMode ? [] : [...new Set(reals.map(p => p.club).filter(c => c && c !== "-"))];
-  const parts = [`${reals.length} ${plural(reals.length, unit)}`];
+  const clubs = teamMode ? [] : [...new Set(counted.map(p => p.club).filter(c => c && c !== "-"))];
+  const parts = [`${counted.length} ${plural(counted.length, unit)}`];
   if (useBaskets) parts.push(`${parsed.length} ${plural(parsed.length, ["koszyk", "koszyki", "koszyków"])}`);
   if (groupCount >= 2) parts.push(`${groupCount} ${plural(groupCount, ["grupa", "grupy", "grup"])}`);
   if (!teamMode && clubs.length) parts.push(`${clubs.length} ${plural(clubs.length, ["klub", "kluby", "klubów"])}`);
@@ -320,11 +349,7 @@ function buildTable(baskets, groupCount, useBaskets = true) {
     for (let g = 0; g < groupCount; g++) {
       const td = document.createElement("td");
       td.id = `cell-b${bIdx}-g${g}`;
-      td.innerHTML = `
-        <div class="cell">
-          <span class="name">—</span>
-          <span class="club">—</span>
-        </div>`;
+      td.innerHTML = `<div class="cell"><span class="firstName">—</span></div>`;
       tr.appendChild(td);
     }
 
@@ -380,7 +405,7 @@ function lastAssignmentText() {
 function countRealAssigned() {
   return STATE.baskets
     .flatMap(b => b.players)
-    .filter(p => p && !p.placeholder && !(p.name === "—" && p.club === "—"))
+    .filter(p => p && !p.placeholder && !isEmptyMarker(p.name) && !(p.name === "—" && p.club === "—"))
     .length;
 }
 
@@ -614,13 +639,7 @@ function nextStep() {
   const cell = document.getElementById(`cell-b${s.basketIndex}-g${s.groupIndex}`);
 
   if (cell) {
-    const isEmpty = (s.player.name === "—" && s.player.club === "—");
-    cell.innerHTML = `
-      <div class="cell ${isEmpty ? "empty" : "filled"}">
-        <span class="name">${escapeHtml(s.player.name)}</span>
-        <span class="club">${escapeHtml(s.player.club)}</span>
-      </div>
-    `;
+    cell.innerHTML = cellMarkup(s.player.name, s.player.club);
   }
 
   addLog(`${s.basketLabel} → ${s.groupLabel}: ${s.player.name}${s.player.club ? " (" + s.player.club + ")" : ""}`);
@@ -1003,13 +1022,7 @@ function loadState() {
     const s = STATE.steps[i];
     const cell = document.getElementById(`cell-b${s.basketIndex}-g${s.groupIndex}`);
     if (!cell) continue;
-    const isEmpty = (s.player.name === "—" && s.player.club === "—");
-    cell.innerHTML = `
-      <div class="cell ${isEmpty ? "empty" : "filled"}">
-        <span class="name">${escapeHtml(s.player.name)}</span>
-        <span class="club">${escapeHtml(s.player.club)}</span>
-      </div>
-    `;
+    cell.innerHTML = cellMarkup(s.player.name, s.player.club);
   }
 
   const logEl = document.getElementById("log");
