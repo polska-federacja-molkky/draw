@@ -490,7 +490,7 @@ summary:focus-visible {
 .resultTable th,
 .resultTable td {
   border: 1px solid #e2e4e8;
-  padding: 3px 7px;
+  padding: 6px 9px;
   vertical-align: top;
 }
 
@@ -525,19 +525,41 @@ summary:focus-visible {
   background: #fafbfd;
 }
 
-.cell .name {
+.cell {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  line-height: 1.2;
+}
+
+/* Układ trójwierszowy: imię / nazwisko / klub.
+   Pionowo mamy dużo miejsca, więc czcionka może być większa i czytelniejsza. */
+.cell .firstName {
+  font-weight: 600;
+  font-size: 15px;
+  word-break: break-word;
+  color: #1a2448;
+}
+
+.cell .lastName {
   font-weight: 700;
-  font-size: 13px;
-  line-height: 1.15;
+  font-size: 15px;
   word-break: break-word;
   color: #1a2448;
 }
 
 .cell .club {
-  font-size: 10px;
-  color: #6b6e76;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  color: #8a5a00;
   word-break: break-word;
-  margin-top: 0;
+  margin-top: 1px;
+}
+
+.cell.empty .firstName {
+  color: #c2c5cc;
+  font-weight: 400;
 }
 
 @keyframes cellFadeIn {
