@@ -490,14 +490,14 @@ summary:focus-visible {
 .resultTable th,
 .resultTable td {
   border: 1px solid #e2e4e8;
-  padding: 6px 9px;
+  padding: 8px 10px;
   vertical-align: top;
 }
 
 .resultTable thead th {
   background: #1a2448;
   color: #fff;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 700;
   letter-spacing: 0.3px;
   text-align: center;
@@ -510,13 +510,13 @@ summary:focus-visible {
 }
 
 .resultTable tbody th {
-  width: 52px;
-  min-width: 52px;
-  max-width: 52px;
+  width: 64px;
+  min-width: 64px;
+  max-width: 64px;
   white-space: nowrap;
   background: #f7f8fc;
   text-align: center;
-  font-size: 12px;
+  font-size: 13px;
   color: #6b6e76;
   font-weight: 600;
 }
@@ -528,38 +528,38 @@ summary:focus-visible {
 .cell {
   display: flex;
   flex-direction: column;
-  gap: 1px;
-  line-height: 1.2;
+  gap: 2px;
+  line-height: 1.15;
 }
 
 /* Układ trójwierszowy: imię / nazwisko / klub.
-   Pionowo mamy dużo miejsca, więc czcionka może być większa i czytelniejsza. */
+   Pionowo mamy dużo miejsca, więc czcionka jest mocno podbita pod czytelność. */
 .cell .firstName {
-  font-weight: 600;
-  font-size: 15px;
+  font-weight: 500;
+  font-size: 18px;
   word-break: break-word;
   color: #1a2448;
 }
 
 .cell .lastName {
   font-weight: 700;
-  font-size: 15px;
+  font-size: 18px;
   word-break: break-word;
   color: #1a2448;
 }
 
 .cell .club {
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.3px;
-  color: #8a5a00;
+  font-size: 13px;
+  font-weight: 500;
+  color: #6b6e76;
   word-break: break-word;
-  margin-top: 1px;
+  margin-top: 2px;
 }
 
 .cell.empty .firstName {
   color: #c2c5cc;
   font-weight: 400;
+  font-size: 18px;
 }
 
 @keyframes cellFadeIn {
