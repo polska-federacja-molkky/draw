@@ -266,6 +266,9 @@ let STATE = {
   useBaskets: true
 };
 
+// Poprzednia faza — do jednorazowego zwijania panelu danych przy przejściu
+let prevPhase = null;
+
 // ======================
 // TABLE BUILD (fixed widths via colgroup)
 // ======================
@@ -383,13 +386,15 @@ function countRealAssigned() {
 
 function refreshUI() {
   const teamMode = document.getElementById("modeTeam")?.checked === true;
-  const noun = teamMode ? "drużyn" : "uczestników";
+  const unitForms = teamMode ? ["drużyna", "drużyny", "drużyn"] : ["uczestnik", "uczestnicy", "uczestników"];
 
   const btnPrimary = document.getElementById("btnPrimary");
   const btnRestart = document.getElementById("btnRestart");
   const btnReset   = document.getElementById("btnReset");
   const btnCopy    = document.getElementById("btnCopy");
   const btnExport  = document.getElementById("btnExport");
+  const setup        = document.getElementById("setup");
+  const summaryText  = document.getElementById("setupSummaryText");
   if (!btnPrimary) return;
 
   const phase = drawPhase();
@@ -399,8 +404,8 @@ function refreshUI() {
     btnPrimary.disabled = false;
     if (btnRestart) btnRestart.hidden = true;
     if (btnReset)   btnReset.hidden = true;
-    if (btnCopy)    btnCopy.disabled = true;
-    if (btnExport)  btnExport.disabled = true;
+    if (btnCopy)    btnCopy.hidden = true;
+    if (btnExport)  btnExport.hidden = true;
     setTablePlaceholder();
     setStatus("idle", "Gotowe do losowania");
     renderValidation();
@@ -409,8 +414,8 @@ function refreshUI() {
     btnPrimary.disabled = false;
     if (btnRestart) btnRestart.hidden = true;
     if (btnReset)   btnReset.hidden = false;
-    if (btnCopy)    btnCopy.disabled = false;
-    if (btnExport)  btnExport.disabled = false;
+    if (btnCopy)    btnCopy.hidden = false;
+    if (btnExport)  btnExport.hidden = false;
     setStatus(
       "drawing",
       `Losowanie w toku: ${STATE.idx} / ${STATE.steps.length}`,
@@ -423,12 +428,27 @@ function refreshUI() {
     btnPrimary.disabled = true;
     if (btnRestart) btnRestart.hidden = false;
     if (btnReset)   btnReset.hidden = false;
-    if (btnCopy)    btnCopy.disabled = false;
-    if (btnExport)  btnExport.disabled = false;
+    if (btnCopy)    btnCopy.hidden = false;
+    if (btnExport)  btnExport.hidden = false;
+    const cnt = countRealAssigned();
     setStatus(
       "done",
-      `Losowanie zakończone: ${countRealAssigned()} ${noun} w ${STATE.groupCount} grupach`
+      `Losowanie zakończone: ${cnt} ${plural(cnt, unitForms)} w ${STATE.groupCount} ${plural(STATE.groupCount, ["grupie", "grupach", "grupach"])}`
     );
+  }
+
+  // Panel danych zwija się przy przejściu do losowania (raz, by nie blokować edycji)
+  if (setup && phase !== prevPhase) {
+    setup.open = (phase === "idle");
+    prevPhase = phase;
+  }
+  if (summaryText) {
+    if (phase === "idle") {
+      summaryText.textContent = "Dane i ustawienia";
+    } else {
+      const cnt = countRealAssigned();
+      summaryText.textContent = `Dane: ${cnt} ${plural(cnt, unitForms)} · ${STATE.groupCount} ${plural(STATE.groupCount, ["grupa", "grupy", "grup"])} — kliknij, aby edytować`;
+    }
   }
 }
 
