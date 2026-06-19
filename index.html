@@ -4,108 +4,111 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Losowanie grup – Polska Federacja Mölkky</title>
+  <link rel="icon" type="image/png" href="PFM_logo.png">
+  <link rel="apple-touch-icon" href="PFM_logo.png">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <div class="page">
-  <section class="topGrid">
 
-    <!-- LEWA: STEROWANIE -->
-    <div class="controlsPanel">
-      <div class="appHeader">
-        <img src="PFM_logo.png" alt="Logo PFM" class="pfmLogo">
-        <h1>Losowanie grup – PFM</h1>
-      </div>
+  <header class="appHeader">
+    <img src="PFM_logo.png" alt="Logo PFM" class="pfmLogo">
+    <h1>Losowanie grup – PFM</h1>
+    <button class="infoBtnInline" onclick="document.getElementById('infoBox').hidden=!document.getElementById('infoBox').hidden">ⓘ O aplikacji</button>
+  </header>
 
+  <div id="infoBox" class="infoBox" hidden>
+    <p>Wklej listę uczestników (z koszykami lub bez), ustaw liczbę grup i kliknij <b>Rozpocznij losowanie</b>. Następnie odsłaniaj kolejne przydziały przyciskiem <b>Losuj dalej</b>.</p>
+    <p>Każde losowanie jest niezależne i nieprzewidywalne. Wynik możesz skopiować lub pobrać do Excela.</p>
+  </div>
 
+  <!-- PRZYKLEJONY PASEK AKCJI: przycisk główny stabilny, status w środku -->
+  <div class="actionBar">
+    <button id="btnPrimary" onclick="primaryAction()">Rozpocznij losowanie</button>
+    <div id="statusBar" class="statusBar statusIdle">
+      <span id="statusMain" class="statusMain" role="status" aria-live="polite">Gotowe do losowania</span>
+      <span id="statusSub" class="statusSub" aria-live="polite"></span>
+    </div>
+    <div class="actionButtons">
+      <button id="btnRestart" class="btnGhost" onclick="newDrawConfirm()" hidden>Nowe losowanie</button>
+      <button id="btnReset" class="btnGhost btnDanger" onclick="resetDraw()" hidden>Resetuj</button>
+      <button id="btnCopy" class="btnGhost" onclick="copyResultsToClipboard()" hidden>Kopiuj do Excela</button>
+      <button id="btnExport" class="btnGhost" onclick="exportXLSX()" hidden>Pobierz Excel (.xlsx)</button>
+    </div>
+  </div>
 
-      <div id="infoBox" class="infoBox" hidden>
-        <p>Losowanie korzysta z <b>seeda</b> (hasła losowania). Te same dane i ten sam seed zawsze dają ten sam wynik.</p>
-        <p>Domyślnie dodawana jest <b>losowa sól</b>, aby każde losowanie było inne. Seed końcowy i sól są zapisane w logu — wynik można odtworzyć (tryb audytu). Seed znajdziesz w Opcjach zaawansowanych.</p>
-      </div>
+  <!-- PANEL DANYCH: zwija się po starcie, rozwijany do edycji -->
+  <details class="setup" id="setup" open>
+    <summary class="setupSummary"><span id="setupSummaryText">Dane i ustawienia</span></summary>
+    <div class="setupBody">
 
-      <button class="infoBtnInline" onclick="document.getElementById('infoBox').hidden=!document.getElementById('infoBox').hidden">ⓘ O aplikacji</button>
+      <div class="setupCol setupOptions">
+        <label>Liczba grup:</label>
+        <input type="number" id="groupCount" value="10" min="2" max="30">
 
-      <label>Liczba grup:</label>
-      <input type="number" id="groupCount" value="10" min="2" max="30">
-
-      <div class="modeToggle">
-        <label class="modeOption">
-          <input type="radio" name="drawMode" id="modeSingle" value="single" checked>
-          <span class="modeLabel">
-            <span class="modeTitle">Indywidualny</span>
-            <span class="modeDesc">Zawodnik + klub</span>
-          </span>
-        </label>
-        <label class="modeOption">
-          <input type="radio" name="drawMode" id="modeTeam" value="team">
-          <span class="modeLabel">
-            <span class="modeTitle">Drużynowy</span>
-            <span class="modeDesc">Cała linia = nazwa drużyny</span>
-          </span>
-        </label>
-      </div>
-
-      <div class="modeToggle">
-        <label class="modeOption">
-          <input type="radio" name="basketMode" id="basketsOn" value="on" checked>
-          <span class="modeLabel">
-            <span class="modeTitle">Z koszykami</span>
-            <span class="modeDesc">Nagłówki KOSZYK 1, 2…</span>
-          </span>
-        </label>
-        <label class="modeOption">
-          <input type="radio" name="basketMode" id="basketsOff" value="off">
-          <span class="modeLabel">
-            <span class="modeTitle">Bez koszyków</span>
-            <span class="modeDesc" id="basketsOffDesc">Sama lista nazwisk</span>
-          </span>
-        </label>
-      </div>
-
-      <label id="inputLabel">Koszyki (do wklejenia z Excela):</label>
-      <textarea id="input" rows="9"></textarea>
-
-      <p id="flatHint" class="flatHint" hidden>Wskazówka: wklej samych zawodników. Liczba rund i placeholderów wynika z podziału graczy na grupy — brakujące miejsca są automatycznie uzupełniane wpisami „Gracz N” w losowych grupach (maks. 1 na grupę).</p>
-
-      <div class="buttons">
-        <button onclick="startDraw()">Start / Reset</button>
-        <button id="btnNext" onclick="nextStep()" disabled>Następny zawodnik</button>
-        <button id="btnCopy" onclick="copyResultsToClipboard()" disabled>Kopiuj wyniki (Excel)</button>
-      </div>
-
-      <details class="advanced">
-        <summary>Opcje zaawansowane</summary>
-
-        <label>Seed:</label>
-        <input type="text" id="seed" value="PFM-Turniej-2026">
-
-        <label class="checkbox">
-          <input type="checkbox" id="exactSeed">
-          Użyj dokładnie seeda (tryb audytu / odtwarzania)
-        </label>
-
-        <div class="buttons secondary">
-          <button onclick="exportTSV()" id="btnExport" disabled>Eksport TSV (tabela koszyk×grupa)</button>
-          <button onclick="exportLog()">Eksport logu</button>
-          <button onclick="clearSaved()">Wyczyść zapis lokalny</button>
+        <div class="modeToggle">
+          <label class="modeOption">
+            <input type="radio" name="drawMode" id="modeSingle" value="single" checked>
+            <span class="modeLabel">
+              <span class="modeTitle">Indywidualny</span>
+              <span class="modeDesc">Zawodnik + klub</span>
+            </span>
+          </label>
+          <label class="modeOption">
+            <input type="radio" name="drawMode" id="modeTeam" value="team">
+            <span class="modeLabel">
+              <span class="modeTitle">Drużynowy</span>
+              <span class="modeDesc">Cała linia = nazwa drużyny</span>
+            </span>
+          </label>
         </div>
-      </details>
-    </div>
 
-    <!-- PRAWA: LOG -->
-    <div class="logPanel">
-      <h2>Przebieg losowania</h2>
-      <div id="log" class="log"></div>
-    </div>
+        <div class="modeToggle">
+          <label class="modeOption">
+            <input type="radio" name="basketMode" id="basketsOn" value="on" checked>
+            <span class="modeLabel">
+              <span class="modeTitle">Z koszykami</span>
+              <span class="modeDesc">Nagłówki KOSZYK 1, 2…</span>
+            </span>
+          </label>
+          <label class="modeOption">
+            <input type="radio" name="basketMode" id="basketsOff" value="off">
+            <span class="modeLabel">
+              <span class="modeTitle">Bez koszyków</span>
+              <span class="modeDesc" id="basketsOffDesc">Sama lista nazwisk</span>
+            </span>
+          </label>
+        </div>
 
-  </section>
+        <details class="advanced">
+          <summary>Opcje dodatkowe</summary>
+          <div class="buttons secondary">
+            <button onclick="exportLog()">Pobierz przebieg (TXT)</button>
+            <button onclick="clearSaved()">Wyczyść zapis przeglądarki</button>
+          </div>
+        </details>
+      </div>
+
+      <div class="setupCol setupInput">
+        <label id="inputLabel">Koszyki (do wklejenia z Excela):</label>
+        <textarea id="input" rows="12"></textarea>
+        <p id="flatHint" class="flatHint" hidden>Wskazówka: wklej samych zawodników. Liczba rund i placeholderów wynika z podziału graczy na grupy — brakujące miejsca są automatycznie uzupełniane wpisami „Gracz N” w losowych grupach (maks. 1 na grupę).</p>
+        <div id="validationPanel" class="validationPanel" aria-live="polite" hidden></div>
+      </div>
+
+    </div>
+  </details>
 
   <section class="tableSection">
     <h2>Wynik losowania</h2>
     <div id="tableWrap"></div>
   </section>
+
+  <details class="logDetails">
+    <summary>Przebieg losowania</summary>
+    <div id="log" class="log"></div>
+  </details>
 </div>
 
 <script src="draw.js"></script>

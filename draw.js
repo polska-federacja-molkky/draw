@@ -9,9 +9,6 @@ function updateModeUI() {
   const teamMode = document.getElementById("modeTeam")?.checked === true;
   const useBaskets = basketsEnabled();
 
-  const btn = document.getElementById("btnNext");
-  if (btn) btn.textContent = teamMode ? "Następna drużyna" : "Następny zawodnik";
-
   const lbl = document.getElementById("inputLabel");
   if (lbl) {
     if (useBaskets) lbl.textContent = "Koszyki (do wklejenia z Excela):";
@@ -25,6 +22,8 @@ function updateModeUI() {
 
   const hint = document.getElementById("flatHint");
   if (hint) hint.hidden = useBaskets;
+
+  refreshUI();
 }
 
 
@@ -99,13 +98,41 @@ function isPlaceholderLine(s) {
   return /^gracz\s*\d+$/i.test(s.trim());
 }
 
+// Ręczny znacznik pustego miejsca w koszyku — pojedyncze "X".
+// Bierze udział w losowaniu (zajmuje slot), ale nie jest realnym uczestnikiem,
+// więc nie wlicza się do liczby uczestników.
+function isEmptyMarker(name) {
+  return typeof name === "string" && name.trim().toLowerCase() === "x";
+}
+
+// Renderuje zawartość komórki w układzie trójwierszowym:
+// imię / nazwisko / klub. Pionowo mamy dużo miejsca, więc rozbicie nazwiska
+// na osobny wiersz pozwala na większą, czytelniejszą czcionkę.
+function cellMarkup(name, club) {
+  const isEmpty = (name === "—" && club === "—");
+  if (isEmpty) {
+    return `<div class="cell empty"><span class="firstName">—</span></div>`;
+  }
+  const trimmed = (name || "").trim();
+  const sp = trimmed.indexOf(" ");
+  const first = sp > 0 ? trimmed.slice(0, sp) : trimmed;
+  const last  = sp > 0 ? trimmed.slice(sp + 1) : "";
+  const clubStr = club && club !== "-" ? club : "";
+  return `<div class="cell filled">` +
+    `<span class="firstName">${escapeHtml(first)}</span>` +
+    (last ? `<span class="lastName">${escapeHtml(last)}</span>` : "") +
+    (clubStr ? `<span class="club">${escapeHtml(clubStr)}</span>` : "") +
+    `</div>`;
+}
+
 function parseInput(text, teamMode, useBaskets = true) {
   const lines = text.split(/\r?\n/);
   const baskets = [];
   let current = null;
 
-  for (const rawLine of lines) {
-    const line = rawLine.trim();
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    const lineNo = i + 1;
     if (!line) continue;
 
     if (/^KOSZYK\b/i.test(line)) {
@@ -125,13 +152,13 @@ function parseInput(text, teamMode, useBaskets = true) {
     // Placeholder "Gracz N" — normalizujemy nazwę i oznaczamy flagą
     if (isPlaceholderLine(line)) {
       const num = (line.match(/\d+/) || [""])[0];
-      current.players.push({ name: `Gracz ${num}`, club: "", placeholder: true });
+      current.players.push({ name: `Gracz ${num}`, club: "", placeholder: true, line: lineNo });
       continue;
     }
 
     // Tryb drużynowy: cała linia = nazwa drużyny, brak klubu
     if (teamMode) {
-      current.players.push({ name: line, club: "" });
+      current.players.push({ name: line, club: "", line: lineNo });
       continue;
     }
 
@@ -157,10 +184,100 @@ function parseInput(text, teamMode, useBaskets = true) {
       }
     }
 
-    current.players.push({ name, club });
+    current.players.push({ name, club, line: lineNo });
   }
 
   return baskets;
+}
+
+// ======================
+// WALIDACJA DANYCH WEJŚCIOWYCH (inline, nieblokująca prócz błędów krytycznych)
+// ======================
+function plural(n, forms) {
+  if (n === 1) return forms[0];
+  const m10 = n % 10, m100 = n % 100;
+  if (m10 >= 2 && m10 <= 4 && !(m100 >= 12 && m100 <= 14)) return forms[1];
+  return forms[2];
+}
+
+function validateInput() {
+  const text = document.getElementById("input")?.value.trim() ?? "";
+  const teamMode = document.getElementById("modeTeam")?.checked === true;
+  const useBaskets = basketsEnabled();
+  const groupCount = parseInt(document.getElementById("groupCount")?.value, 10);
+
+  const result = { empty: !text, counts: null, warnings: [], errors: [] };
+  if (!text) return result;
+
+  const parsed = parseInput(text, teamMode, useBaskets);
+  const players = parsed.flatMap(b => b.players);
+  const reals = players.filter(p => !p.placeholder);
+  // "X" zajmuje slot w koszyku, ale nie jest uczestnikiem — pomijamy w liczniku.
+  const counted = reals.filter(p => !isEmptyMarker(p.name));
+  const unit = teamMode ? ["drużyna", "drużyny", "drużyn"] : ["uczestnik", "uczestnicy", "uczestników"];
+
+  // liczniki
+  const clubs = teamMode ? [] : [...new Set(counted.map(p => p.club).filter(c => c && c !== "-"))];
+  const parts = [`${counted.length} ${plural(counted.length, unit)}`];
+  if (useBaskets) parts.push(`${parsed.length} ${plural(parsed.length, ["koszyk", "koszyki", "koszyków"])}`);
+  if (groupCount >= 2) parts.push(`${groupCount} ${plural(groupCount, ["grupa", "grupy", "grup"])}`);
+  if (!teamMode && clubs.length) parts.push(`${clubs.length} ${plural(clubs.length, ["klub", "kluby", "klubów"])}`);
+  result.counts = parts.join(" · ");
+
+  // błędy krytyczne (blokują start)
+  if (!groupCount || groupCount < 2) {
+    result.errors.push("Podaj liczbę grup (min. 2).");
+  }
+  if (!reals.length) {
+    result.errors.push(teamMode ? "Brak drużyn na liście." : "Brak uczestników na liście.");
+  }
+  if (useBaskets && groupCount >= 2) {
+    parsed
+      .filter(b => b.players.length > groupCount)
+      .forEach(b => result.errors.push(
+        `${b.label} ma więcej osób (${b.players.length}) niż grup (${groupCount}). Zmniejsz koszyk lub zwiększ liczbę grup.`
+      ));
+  }
+
+  // ostrzeżenia (pozwalają losować)
+  // Duplikaty — pomijamy placeholdery "X" (ręczne znaczniki pustych miejsc)
+  const seen = new Map();
+  for (const p of reals) {
+    const key = p.name.trim().toLowerCase();
+    if (!key || key === "x") continue;
+    if (!seen.has(key)) seen.set(key, { name: p.name.trim(), lines: [] });
+    seen.get(key).lines.push(p.line);
+  }
+  const dups = [...seen.values()].filter(x => x.lines.length > 1);
+  if (dups.length) {
+    const sample = dups.slice(0, 4).map(d => `${d.name} (linie ${d.lines.join(", ")})`).join("; ");
+    result.warnings.push(
+      `Możliwe duplikaty — ${dups.length} ${plural(dups.length, ["pozycja", "pozycje", "pozycji"])}: ${sample}${dups.length > 4 ? " …" : ""}`
+    );
+  }
+
+  return result;
+}
+
+function renderValidation() {
+  const panel = document.getElementById("validationPanel");
+  if (!panel) return null;
+
+  // Panel walidacji ma sens tylko przed losowaniem
+  if (drawPhase() !== "idle") { panel.hidden = true; panel.innerHTML = ""; return null; }
+
+  const v = validateInput();
+  if (v.empty) { panel.hidden = true; panel.innerHTML = ""; return v; }
+
+  let html = "";
+  if (v.counts) html += `<div class="vRow vCounts">Wykryto: ${escapeHtml(v.counts)}</div>`;
+  for (const e of v.errors)   html += `<div class="vRow vError">✗ ${escapeHtml(e)}</div>`;
+  for (const w of v.warnings) html += `<div class="vRow vWarn">⚠ ${escapeHtml(w)}</div>`;
+
+  panel.className = "validationPanel" + (v.errors.length ? " hasError" : v.warnings.length ? " hasWarn" : " ok");
+  panel.innerHTML = html;
+  panel.hidden = false;
+  return v;
 }
 
 // ======================
@@ -178,6 +295,9 @@ let STATE = {
   useBaskets: true
 };
 
+// Poprzednia faza — do jednorazowego zwijania panelu danych przy przejściu
+let prevPhase = null;
+
 // ======================
 // TABLE BUILD (fixed widths via colgroup)
 // ======================
@@ -190,7 +310,7 @@ function buildTable(baskets, groupCount, useBaskets = true) {
   const colgroup = document.createElement("colgroup");
 
   const colKoszyk = document.createElement("col");
-  colKoszyk.style.width = "88px";
+  colKoszyk.style.width = "64px";
   colgroup.appendChild(colKoszyk);
 
   for (let i = 0; i < groupCount; i++) {
@@ -229,11 +349,7 @@ function buildTable(baskets, groupCount, useBaskets = true) {
     for (let g = 0; g < groupCount; g++) {
       const td = document.createElement("td");
       td.id = `cell-b${bIdx}-g${g}`;
-      td.innerHTML = `
-        <div class="cell">
-          <span class="name">—</span>
-          <span class="club">—</span>
-        </div>`;
+      td.innerHTML = `<div class="cell"><span class="firstName">—</span></div>`;
       tr.appendChild(td);
     }
 
@@ -258,6 +374,154 @@ function highlightNext() {
 }
 
 // ======================
+// STATUS + PRIMARY ACTION DISPATCH
+// ======================
+function drawPhase() {
+  if (!STATE.started) return "idle";
+  if (STATE.idx >= STATE.steps.length) return "done";
+  return "drawing";
+}
+
+function setStatus(state, main, sub) {
+  const bar = document.getElementById("statusBar");
+  const mainEl = document.getElementById("statusMain");
+  const subEl  = document.getElementById("statusSub");
+  if (!bar || !mainEl || !subEl) return;
+  bar.classList.remove("statusIdle", "statusDrawing", "statusDone");
+  bar.classList.add("status" + state[0].toUpperCase() + state.slice(1));
+  mainEl.textContent = main;
+  if (sub) { subEl.textContent = sub; subEl.hidden = false; }
+  else { subEl.textContent = ""; subEl.hidden = true; }
+}
+
+function lastAssignmentText() {
+  if (STATE.idx === 0) return "";
+  const s = STATE.steps[STATE.idx - 1];
+  if (!s) return "";
+  const clubPart = s.player.club ? ` [${s.player.club}]` : "";
+  return `Ostatni przydział: ${s.basketLabel} → ${s.groupLabel}: ${s.player.name}${clubPart}`;
+}
+
+function countRealAssigned() {
+  return STATE.baskets
+    .flatMap(b => b.players)
+    .filter(p => p && !p.placeholder && !isEmptyMarker(p.name) && !(p.name === "—" && p.club === "—"))
+    .length;
+}
+
+function refreshUI() {
+  const teamMode = document.getElementById("modeTeam")?.checked === true;
+  const unitForms = teamMode ? ["drużyna", "drużyny", "drużyn"] : ["uczestnik", "uczestnicy", "uczestników"];
+
+  const btnPrimary = document.getElementById("btnPrimary");
+  const btnRestart = document.getElementById("btnRestart");
+  const btnReset   = document.getElementById("btnReset");
+  const btnCopy    = document.getElementById("btnCopy");
+  const btnExport  = document.getElementById("btnExport");
+  const setup        = document.getElementById("setup");
+  const summaryText  = document.getElementById("setupSummaryText");
+  if (!btnPrimary) return;
+
+  const phase = drawPhase();
+
+  if (phase === "idle") {
+    btnPrimary.textContent = "Rozpocznij losowanie";
+    btnPrimary.disabled = false;
+    if (btnRestart) btnRestart.hidden = true;
+    if (btnReset)   btnReset.hidden = true;
+    if (btnCopy)    btnCopy.hidden = true;
+    if (btnExport)  btnExport.hidden = true;
+    setTablePlaceholder();
+    setStatus("idle", "Gotowe do losowania");
+    renderValidation();
+  } else if (phase === "drawing") {
+    btnPrimary.textContent = "Losuj dalej";
+    btnPrimary.disabled = false;
+    if (btnRestart) btnRestart.hidden = true;
+    if (btnReset)   btnReset.hidden = false;
+    if (btnCopy)    btnCopy.hidden = false;
+    if (btnExport)  btnExport.hidden = false;
+    setStatus(
+      "drawing",
+      `Losowanie w toku: ${STATE.idx} / ${STATE.steps.length}`,
+      lastAssignmentText()
+    );
+  } else { // done
+    // Przycisk główny nieaktywny, żeby z rozpędu nie kliknąć restartu.
+    // "Nowe losowanie" to osobny, mniej eksponowany guzik z potwierdzeniem.
+    btnPrimary.textContent = "Losowanie zakończone ✓";
+    btnPrimary.disabled = true;
+    if (btnRestart) btnRestart.hidden = false;
+    if (btnReset)   btnReset.hidden = false;
+    if (btnCopy)    btnCopy.hidden = false;
+    if (btnExport)  btnExport.hidden = false;
+    const cnt = countRealAssigned();
+    setStatus(
+      "done",
+      `Losowanie zakończone: ${cnt} ${plural(cnt, unitForms)} w ${STATE.groupCount} ${plural(STATE.groupCount, ["grupie", "grupach", "grupach"])}`
+    );
+  }
+
+  // Panel danych zwija się przy przejściu do losowania (raz, by nie blokować edycji)
+  if (setup && phase !== prevPhase) {
+    setup.open = (phase === "idle");
+    prevPhase = phase;
+  }
+  if (summaryText) {
+    if (phase === "idle") {
+      summaryText.textContent = "Dane i ustawienia";
+    } else {
+      const cnt = countRealAssigned();
+      summaryText.textContent = `Dane: ${cnt} ${plural(cnt, unitForms)} · ${STATE.groupCount} ${plural(STATE.groupCount, ["grupa", "grupy", "grup"])} — kliknij, aby edytować`;
+    }
+  }
+}
+
+function primaryAction() {
+  const phase = drawPhase();
+  if (phase === "idle")    { startDraw(); return; }
+  if (phase === "drawing") { nextStep();  return; }
+  /* done: przycisk nieaktywny — brak akcji */
+}
+
+function newDrawConfirm() {
+  if (drawPhase() !== "done") return;
+  if (!confirm("Rozpocząć nowe losowanie na tych samych danych? Obecny wynik zostanie zastąpiony nowym.")) return;
+  startDraw();
+}
+
+function setTablePlaceholder() {
+  const wrap = document.getElementById("tableWrap");
+  if (wrap && !wrap.querySelector("table")) {
+    wrap.innerHTML = `<p class="tablePlaceholder">Tu pojawi się wynik losowania po kliknięciu „Rozpocznij losowanie”.</p>`;
+  }
+}
+
+function newDraw() {
+  STATE = {
+    steps: [], idx: 0, baskets: [], groupCount: 0,
+    started: false, finalSeed: "", salt: "", teamMode: false, useBaskets: true
+  };
+  const wrap = document.getElementById("tableWrap");
+  if (wrap) wrap.innerHTML = "";
+  const log = document.getElementById("log");
+  if (log) log.innerHTML = "";
+  localStorage.removeItem(STORAGE_KEY);
+  refreshUI();
+  document.getElementById("input")?.focus();
+}
+
+function resetDraw() {
+  if (drawPhase() === "idle") return;
+  const inProgress = drawPhase() === "drawing";
+  const msg = inProgress
+    ? "Zresetować trwające losowanie? Postęp i przebieg zostaną usunięte. Wklejone dane pozostają."
+    : "Wyczyścić wynik zakończonego losowania? Tabela i przebieg zostaną usunięte. Wklejone dane pozostają.";
+  if (!confirm(msg)) return;
+  newDraw();
+}
+
+// ======================
 // LOG
 // ======================
 function addLog(text) {
@@ -272,48 +536,24 @@ function addLog(text) {
 // START / RESET
 // ======================
 function startDraw() {
-  const baseSeed = document.getElementById("seed").value.trim();
   const text = document.getElementById("input").value.trim();
   const groupCount = parseInt(document.getElementById("groupCount").value, 10);
   const teamMode = document.getElementById("modeTeam")?.checked === true;
   const useBaskets = basketsEnabled();
 
-  if (!baseSeed) return alert("Brak seeda.");
-  if (!text) return alert("Brak danych z Excela.");
-  if (!groupCount || groupCount < 2) return alert("Podaj poprawną liczbę grup (min 2).");
+  // Bramka walidacji: błędy krytyczne blokują start (komunikat w panelu, nie alert)
+  const v = renderValidation();
+  if (v && v.errors.length) {
+    document.getElementById("validationPanel")?.scrollIntoView({ block: "nearest" });
+    document.getElementById("input")?.focus();
+    return;
+  }
 
   const parsed = parseInput(text, teamMode, useBaskets);
-  const totalPlayers = parsed.reduce((s, b) => s + b.players.length, 0);
 
-  if (useBaskets) {
-    if (!parsed.length) return alert("Nie wykryto żadnego koszyka (nagłówki 'KOSZYK X').");
-
-    const tooBig = parsed
-      .map(b => ({ label: b.label, n: b.players.length }))
-      .filter(x => x.n > groupCount);
-
-    if (tooBig.length) {
-      return alert(
-        "Błąd: w niektórych koszykach jest więcej osób niż liczba grup.\n" +
-        tooBig.map(x => `${x.label}: ${x.n} > ${groupCount}`).join("\n")
-      );
-    }
-  } else if (!totalPlayers) {
-    return alert("Brak zawodników na liście.");
-  }
-
-  const useExact = document.getElementById("exactSeed")?.checked === true;
-
-  let salt = "";
-  let finalSeed = "";
-
-  if (useExact) {
-    salt = "(wyłączona)";
-    finalSeed = baseSeed;
-  } else {
-    salt = `${new Date().toISOString()}-${cryptoRandomInt()}`;
-    finalSeed = `${baseSeed} | ${salt}`;
-  }
+  // Losowy seed wewnętrzny — każde losowanie jest niezależne i nieprzewidywalne.
+  const salt = `${new Date().toISOString()}-${cryptoRandomInt()}`;
+  const finalSeed = salt;
 
   const random = createSeededRandom(finalSeed);
 
@@ -369,13 +609,6 @@ function startDraw() {
 
   STATE = { steps, idx: 0, baskets, groupCount, started: true, finalSeed, salt, teamMode, useBaskets };
 
-  const btnNext = document.getElementById("btnNext");
-  const btnExport = document.getElementById("btnExport");
-  const btnCopy = document.getElementById("btnCopy");
-  if (btnNext) btnNext.disabled = false;
-  if (btnExport) btnExport.disabled = false;
-  if (btnCopy) btnCopy.disabled = false;
-
   const allPlayers = baskets.flatMap(b => b.players);
   const placeholderCount = allPlayers.filter(p => p.placeholder).length;
   const realCount = allPlayers.filter(p => !p.placeholder).length;
@@ -385,11 +618,9 @@ function startDraw() {
     : `Bez koszyków, realnych=${realCount}` +
       (placeholderCount ? `, placeholderów=${placeholderCount} (ostatnia runda, losowe grupy)` : "");
   addLog(`Start losowania. Tryb: ${modeLabel}. Grupy=${groupCount}. ${basketInfo}.`);
-  addLog(`Tryb seeda: ${useExact ? "DOKŁADNY (odtwarzanie)" : "NORMALNY (losowa sól)"}`);
-  addLog(`Sól: ${salt}`);
-  addLog(`Seed końcowy użyty do losowania (AUDYT): ${finalSeed}`);
 
   highlightNext();
+  refreshUI();
   saveState();
 }
 
@@ -408,13 +639,7 @@ function nextStep() {
   const cell = document.getElementById(`cell-b${s.basketIndex}-g${s.groupIndex}`);
 
   if (cell) {
-    const isEmpty = (s.player.name === "—" && s.player.club === "—");
-    cell.innerHTML = `
-      <div class="cell ${isEmpty ? "empty" : "filled"}">
-        <span class="name">${escapeHtml(s.player.name)}</span>
-        <span class="club">${escapeHtml(s.player.club)}</span>
-      </div>
-    `;
+    cell.innerHTML = cellMarkup(s.player.name, s.player.club);
   }
 
   addLog(`${s.basketLabel} → ${s.groupLabel}: ${s.player.name}${s.player.club ? " (" + s.player.club + ")" : ""}`);
@@ -426,58 +651,233 @@ function nextStep() {
   }
 
   highlightNext();
+  refreshUI();
   saveState();
 }
 
 function finalizeDraw() {
   addLog("Losowanie zakończone.");
-  const btnNext = document.getElementById("btnNext");
-  if (btnNext) btnNext.disabled = true;
 }
 
 // ======================
 // EXPORT: TSV (plik, Excel-friendly)
 // Bugfix: każda grupa zawsze zajmuje dokładnie 2 kolumny (nazwa + klub)
 // ======================
-function buildExportMatrix() {
-  const basketsCount = STATE.baskets.length;
-  const groupCount = STATE.groupCount;
-
-  // Każda komórka to tablica [nazwa, klub] — zawsze 2 elementy
-  const matrix = Array.from({ length: basketsCount }, () =>
-    Array.from({ length: groupCount }, () => ["", ""])
-  );
-
+// Wynik pogrupowany: perGroup[g] = [{name, club}, ...] w kolejności losowania.
+// Wspólne dla kopiowania do schowka i eksportu XLSX.
+function resultPerGroup() {
+  const perGroup = Array.from({ length: STATE.groupCount }, () => []);
   for (const s of STATE.steps) {
-    const isEmpty = (s.player.name === "—" && s.player.club === "—");
-    matrix[s.basketIndex][s.groupIndex] = isEmpty
-      ? ["", ""]
-      : [s.player.name, s.player.club || ""];
+    if (s.player && s.player.name && s.player.name !== "—") {
+      perGroup[s.groupIndex].push({ name: s.player.name, club: s.player.club || "" });
+    }
   }
-
-  return matrix;
+  return perGroup;
 }
 
-function matrixToTSV(matrix) {
-  const rows = [];
+// ======================
+// EXPORT: XLSX (siatka kart 4-w-rzędzie, jak w arkuszu turniejowym)
+// Samodzielny generator bez bibliotek: pliki XML pakowane do ZIP metodą
+// "store" (bez kompresji) z poprawnym CRC32. Polskie znaki w UTF-8.
+// ======================
+const GROUPS_PER_ROW = 4;
 
-  // Nagłówek: Grupa A, (puste na klub), Grupa B, ...
-  const headerCols = ["Koszyk"];
+function colLetters1(n) {
+  let s = "";
+  while (n > 0) { const r = (n - 1) % 26; s = String.fromCharCode(65 + r) + s; n = Math.floor((n - 1) / 26); }
+  return s;
+}
+
+function xmlEsc(str) {
+  return String(str)
+    .replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;").replaceAll("'", "&apos;");
+}
+
+function buildSheetXml() {
+  const perGroup = resultPerGroup();
+  const groups = [];
   for (let g = 0; g < STATE.groupCount; g++) {
-    headerCols.push(groupLabel(g), STATE.teamMode ? "" : "Klub");
+    groups.push({ label: `Grupa ${excelLetters(g)}`, players: perGroup[g] });
   }
-  rows.push(headerCols.join("\t"));
 
-  for (let b = 0; b < matrix.length; b++) {
-    const basketName = STATE.baskets[b].label;
-    const rowCols = [basketName];
-    for (let g = 0; g < STATE.groupCount; g++) {
-      rowCols.push(...matrix[b][g]); // zawsze 2 wartości
+  const cells = [];   // {r, c, v, s}
+  const merges = [];
+  let rowCursor = 1;
+
+  for (let start = 0; start < groups.length; start += GROUPS_PER_ROW) {
+    const block = groups.slice(start, start + GROUPS_PER_ROW);
+    const headerRow = rowCursor;
+    const maxPlayers = Math.max(0, ...block.map(g => g.players.length));
+
+    block.forEach((grp, p) => {
+      const nameCol = 2 + p * 3;   // A=margines, potem nazwa/klub/odstęp
+      const clubCol = 3 + p * 3;
+      cells.push({ r: headerRow, c: nameCol, v: grp.label, s: 1 });
+      cells.push({ r: headerRow, c: clubCol, v: "", s: 1 });
+      merges.push(`${colLetters1(nameCol)}${headerRow}:${colLetters1(clubCol)}${headerRow}`);
+      grp.players.forEach((pl, ri) => {
+        const r = headerRow + 1 + ri;
+        cells.push({ r, c: nameCol, v: pl.name, s: 2 });
+        cells.push({ r, c: clubCol, v: pl.club, s: 3 });
+      });
+    });
+
+    rowCursor = headerRow + 1 + maxPlayers + 1; // +1 wiersz odstępu między rzędami kart
+  }
+
+  const colCount = 1 + GROUPS_PER_ROW * 3;
+  let colsXml = "<cols>";
+  for (let c = 1; c <= colCount; c++) {
+    const pos = (c - 2) % 3; // dla c>=2: 0=nazwa, 1=klub, 2=odstęp
+    const w = c < 2 ? 2.5 : (pos === 0 ? 24 : pos === 1 ? 6.5 : 2.5);
+    colsXml += `<col min="${c}" max="${c}" width="${w}" customWidth="1"/>`;
+  }
+  colsXml += "</cols>";
+
+  const byRow = new Map();
+  for (const cell of cells) {
+    if (!byRow.has(cell.r)) byRow.set(cell.r, []);
+    byRow.get(cell.r).push(cell);
+  }
+  let sheetRows = "";
+  for (const r of [...byRow.keys()].sort((a, b) => a - b)) {
+    const rowCells = byRow.get(r).sort((a, b) => a.c - b.c);
+    let cellsXml = "";
+    for (const cell of rowCells) {
+      const ref = `${colLetters1(cell.c)}${r}`;
+      cellsXml += (cell.v === "" || cell.v == null)
+        ? `<c r="${ref}" s="${cell.s}"/>`
+        : `<c r="${ref}" s="${cell.s}" t="inlineStr"><is><t xml:space="preserve">${xmlEsc(cell.v)}</t></is></c>`;
     }
-    rows.push(rowCols.join("\t"));
+    sheetRows += `<row r="${r}">${cellsXml}</row>`;
   }
 
-  return rows.join("\n");
+  const mergeXml = merges.length
+    ? `<mergeCells count="${merges.length}">${merges.map(m => `<mergeCell ref="${m}"/>`).join("")}</mergeCells>`
+    : "";
+
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+    `<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">` +
+    colsXml + `<sheetData>${sheetRows}</sheetData>` + mergeXml + `</worksheet>`;
+}
+
+const XLSX_CONTENT_TYPES = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+  `<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">` +
+  `<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>` +
+  `<Default Extension="xml" ContentType="application/xml"/>` +
+  `<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>` +
+  `<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>` +
+  `<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>` +
+  `</Types>`;
+
+const XLSX_ROOT_RELS = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+  `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` +
+  `<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>` +
+  `</Relationships>`;
+
+const XLSX_WORKBOOK = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+  `<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">` +
+  `<sheets><sheet name="Wynik losowania" sheetId="1" r:id="rId1"/></sheets></workbook>`;
+
+const XLSX_WORKBOOK_RELS = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+  `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` +
+  `<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>` +
+  `<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>` +
+  `</Relationships>`;
+
+const XLSX_STYLES = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+  `<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">` +
+  `<fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts>` +
+  `<fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>` +
+  `<fill><patternFill patternType="solid"><fgColor rgb="FFC0141C"/><bgColor indexed="64"/></patternFill></fill></fills>` +
+  `<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border>` +
+  `<border><left style="thin"><color rgb="FF808080"/></left><right style="thin"><color rgb="FF808080"/></right><top style="thin"><color rgb="FF808080"/></top><bottom style="thin"><color rgb="FF808080"/></bottom><diagonal/></border></borders>` +
+  `<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>` +
+  `<cellXfs count="4">` +
+  `<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>` +
+  `<xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>` +
+  `<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center"/></xf>` +
+  `<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>` +
+  `</cellXfs>` +
+  `<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>` +
+  `</styleSheet>`;
+
+const CRC_TABLE = (() => {
+  const t = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+    t[n] = c >>> 0;
+  }
+  return t;
+})();
+function crc32(bytes) {
+  let c = 0xFFFFFFFF;
+  for (let i = 0; i < bytes.length; i++) c = CRC_TABLE[(c ^ bytes[i]) & 0xFF] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+function concatBytes(list) {
+  let len = 0; for (const a of list) len += a.length;
+  const out = new Uint8Array(len); let p = 0;
+  for (const a of list) { out.set(a, p); p += a.length; }
+  return out;
+}
+function zipStore(files) {
+  const enc = new TextEncoder();
+  const u16 = v => new Uint8Array([v & 255, (v >>> 8) & 255]);
+  const u32 = v => new Uint8Array([v & 255, (v >>> 8) & 255, (v >>> 16) & 255, (v >>> 24) & 255]);
+  const locals = [];
+  const centrals = [];
+  let offset = 0;
+  for (const f of files) {
+    const nameBytes = enc.encode(f.name);
+    const data = typeof f.data === "string" ? enc.encode(f.data) : f.data;
+    const crc = crc32(data);
+    const size = data.length;
+    const local = concatBytes([
+      u32(0x04034b50), u16(20), u16(0), u16(0), u16(0), u16(0),
+      u32(crc), u32(size), u32(size), u16(nameBytes.length), u16(0),
+      nameBytes, data
+    ]);
+    locals.push(local);
+    centrals.push(concatBytes([
+      u32(0x02014b50), u16(20), u16(20), u16(0), u16(0), u16(0), u16(0),
+      u32(crc), u32(size), u32(size), u16(nameBytes.length), u16(0), u16(0),
+      u16(0), u16(0), u32(0), u32(offset), nameBytes
+    ]));
+    offset += local.length;
+  }
+  const central = concatBytes(centrals);
+  const eocd = concatBytes([
+    u32(0x06054b50), u16(0), u16(0), u16(files.length), u16(files.length),
+    u32(central.length), u32(offset), u16(0)
+  ]);
+  return concatBytes([...locals, central, eocd]);
+}
+
+function exportXLSX() {
+  if (!STATE.started) return alert("Najpierw rozpocznij losowanie.");
+  const files = [
+    { name: "[Content_Types].xml", data: XLSX_CONTENT_TYPES },
+    { name: "_rels/.rels", data: XLSX_ROOT_RELS },
+    { name: "xl/workbook.xml", data: XLSX_WORKBOOK },
+    { name: "xl/_rels/workbook.xml.rels", data: XLSX_WORKBOOK_RELS },
+    { name: "xl/styles.xml", data: XLSX_STYLES },
+    { name: "xl/worksheets/sheet1.xml", data: buildSheetXml() }
+  ];
+  const blob = new Blob([zipStore(files)], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+  const stamp = new Date().toISOString().slice(0, 19).replaceAll(":", "-");
+  downloadBlob(`losowanie_${stamp}.xlsx`, blob);
+  addLog("Pobrano wynik do pliku XLSX.");
+}
+
+function downloadBlob(filename, blob) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
 }
 
 function downloadText(filename, text, mime = "text/plain;charset=utf-8") {
@@ -492,31 +892,14 @@ function downloadText(filename, text, mime = "text/plain;charset=utf-8") {
   URL.revokeObjectURL(url);
 }
 
-function exportTSV() {
-  if (!STATE.started) return alert("Najpierw kliknij Start.");
-  const matrix = buildExportMatrix();
-  const tsv = matrixToTSV(matrix);
-  const stamp = new Date().toISOString().slice(0, 19).replaceAll(":", "-");
-  downloadText(`losowanie_${stamp}.tsv`, tsv, "text/tab-separated-values;charset=utf-8");
-  addLog("Wyeksportowano TSV do pliku.");
-}
-
 // ======================
 // COPY RESULTS TO CLIPBOARD
 // ======================
 async function copyResultsToClipboard() {
-  if (!STATE || !STATE.started) return alert("Najpierw kliknij Start.");
+  if (!STATE || !STATE.started) return alert("Najpierw rozpocznij losowanie.");
 
   const groups = STATE.groupCount;
-
-  const perGroup = Array.from({ length: groups }, () => []);
-
-  for (const s of STATE.steps) {
-    if (s.player && s.player.name && s.player.name !== "—") {
-      perGroup[s.groupIndex].push({ name: s.player.name, club: s.player.club || "" });
-    }
-  }
-
+  const perGroup = resultPerGroup();
   const maxRows = Math.max(0, ...perGroup.map(g => g.length));
   const lines = [];
 
@@ -545,8 +928,8 @@ async function copyResultsToClipboard() {
     await navigator.clipboard.writeText(tsv);
     addLog("Skopiowano wyniki do schowka (Excel). Wklej w Excelu w A1 jako wartości.");
   } catch (e) {
-    addLog("Kopiowanie do schowka zablokowane — użyj eksportu TSV do pliku.");
-    alert("Kopiowanie do schowka zablokowane. Użyj 'Eksport TSV'.");
+    addLog("Kopiowanie do schowka zablokowane — użyj przycisku „Pobierz Excel”.");
+    alert("Kopiowanie do schowka zablokowane. Użyj „Pobierz Excel”.");
   }
 }
 
@@ -564,16 +947,14 @@ function exportLog() {
 // ======================
 // PERSISTENCE: localStorage (refresh safe)
 // ======================
-const STORAGE_KEY = "pfm_draw_state_v7";
+const STORAGE_KEY = "pfm_draw_state_v8";
 
 function saveState() {
   if (!STATE || !STATE.started) return;
 
   const payload = {
-    version: 7,
+    version: 8,
     savedAt: new Date().toISOString(),
-    baseSeed: document.getElementById("seed")?.value ?? "",
-    exactSeed: document.getElementById("exactSeed")?.checked === true,
     teamMode: STATE.teamMode ?? false,
     useBaskets: STATE.useBaskets ?? true,
     finalSeed: STATE.finalSeed ?? "",
@@ -601,21 +982,17 @@ function loadState() {
     return false;
   }
 
-  if (!payload || payload.version !== 7 || !payload.started) return false;
+  if (!payload || payload.version !== 8 || !payload.started) return false;
 
-  const seedEl = document.getElementById("seed");
   const groupEl = document.getElementById("groupCount");
   const inputEl = document.getElementById("input");
-  const exactEl      = document.getElementById("exactSeed");
   const modeSingleEl = document.getElementById("modeSingle");
   const modeTeamEl   = document.getElementById("modeTeam");
   const basketsOnEl  = document.getElementById("basketsOn");
   const basketsOffEl = document.getElementById("basketsOff");
 
-  if (seedEl)  seedEl.value    = payload.baseSeed  || "";
   if (groupEl) groupEl.value   = payload.groupCount || 10;
   if (inputEl) inputEl.value   = payload.inputText  || "";
-  if (exactEl) exactEl.checked = payload.exactSeed === true;
   if (modeTeamEl && modeSingleEl) {
     modeTeamEl.checked   = payload.teamMode === true;
     modeSingleEl.checked = payload.teamMode !== true;
@@ -645,31 +1022,18 @@ function loadState() {
     const s = STATE.steps[i];
     const cell = document.getElementById(`cell-b${s.basketIndex}-g${s.groupIndex}`);
     if (!cell) continue;
-    const isEmpty = (s.player.name === "—" && s.player.club === "—");
-    cell.innerHTML = `
-      <div class="cell ${isEmpty ? "empty" : "filled"}">
-        <span class="name">${escapeHtml(s.player.name)}</span>
-        <span class="club">${escapeHtml(s.player.club)}</span>
-      </div>
-    `;
+    cell.innerHTML = cellMarkup(s.player.name, s.player.club);
   }
 
   const logEl = document.getElementById("log");
   if (logEl) logEl.innerHTML = payload.logHtml || "";
-
-  const btnNext   = document.getElementById("btnNext");
-  const btnExport = document.getElementById("btnExport");
-  const btnCopy   = document.getElementById("btnCopy");
-
-  if (btnNext)   btnNext.disabled   = (STATE.idx >= STATE.steps.length);
-  if (btnExport) btnExport.disabled = false;
-  if (btnCopy)   btnCopy.disabled   = false;
 
   addLog(`Przywrócono stan po odświeżeniu (krok ${STATE.idx}/${STATE.steps.length}).`);
   if (STATE.salt)      addLog(`Sół: ${STATE.salt}`);
   if (STATE.finalSeed) addLog(`Seed końcowy użyty do losowania (AUDYT): ${STATE.finalSeed}`);
 
   highlightNext();
+  refreshUI();
   return true;
 }
 
@@ -683,5 +1047,7 @@ document.addEventListener("DOMContentLoaded", () => {
   ["modeSingle", "modeTeam", "basketsOn", "basketsOff"].forEach(id => {
     document.getElementById(id)?.addEventListener("change", updateModeUI);
   });
+  document.getElementById("input")?.addEventListener("input", renderValidation);
+  document.getElementById("groupCount")?.addEventListener("input", renderValidation);
   updateModeUI();
 });
