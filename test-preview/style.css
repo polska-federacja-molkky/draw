@@ -527,9 +527,19 @@ summary:focus-visible {
 
 .cell {
   display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  line-height: 1.15;
+}
+
+/* Blok imię+nazwisko po lewej; herb ląduje po prawej stronie komórki. */
+.cellName {
+  display: flex;
   flex-direction: column;
   gap: 2px;
-  line-height: 1.15;
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
 /* Układ trójwierszowy: imię / nazwisko / klub.
@@ -558,7 +568,7 @@ summary:focus-visible {
 
 /* Herb klubu zamiast skrótu (skrót zostaje w tooltipie i w eksporcie). */
 .cell .clubLogo {
-  margin-top: 3px;
+  flex: 0 0 auto;
 }
 
 img.clubLogo {
