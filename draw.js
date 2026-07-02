@@ -206,6 +206,26 @@ function fitAllCells() {
   document.querySelectorAll(".resultTable td .cell").forEach(fitCell);
 }
 
+// ======================
+// TRYB PEŁNOEKRANOWY / PREZENTACJA (do rzutnika na sali)
+// ======================
+function toggleFullscreen() {
+  const el = document.documentElement;
+  if (!document.fullscreenElement) {
+    (el.requestFullscreen || el.webkitRequestFullscreen)?.call(el);
+  } else {
+    (document.exitFullscreen || document.webkitExitFullscreen)?.call(document);
+  }
+}
+
+function onFullscreenChange() {
+  const on = !!(document.fullscreenElement || document.webkitFullscreenElement);
+  document.body.classList.toggle("presenting", on);
+  const b = document.getElementById("btnFullscreen");
+  if (b) b.textContent = on ? "⛶ Zamknij pełny ekran" : "⛶ Pełny ekran";
+  fitAllCells();   // układ się zmienił — przelicz dopasowanie nazw
+}
+
 function parseInput(text, teamMode, useBaskets = true) {
   const lines = text.split(/\r?\n/);
   const baskets = [];
@@ -722,6 +742,10 @@ function nextStep() {
   if (cell) {
     cell.innerHTML = cellMarkup(s.player.name, s.player.club);
     fitCell(cell.querySelector(".cell"));
+    // Żywsze odsłanianie: podświetl tylko tę, świeżo wylosowaną komórkę.
+    document.querySelectorAll(".resultTable td.justDrawn").forEach(t => t.classList.remove("justDrawn"));
+    void cell.offsetWidth;            // restart animacji
+    cell.classList.add("justDrawn");
   }
 
   addLog(`${s.basketLabel} → ${s.groupLabel}: ${s.player.name}${s.player.club ? " (" + s.player.club + ")" : ""}`);
@@ -1140,4 +1164,7 @@ document.addEventListener("DOMContentLoaded", () => {
     clearTimeout(fitTimer);
     fitTimer = setTimeout(fitAllCells, 150);
   });
+
+  document.addEventListener("fullscreenchange", onFullscreenChange);
+  document.addEventListener("webkitfullscreenchange", onFullscreenChange);
 });
