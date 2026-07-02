@@ -108,32 +108,11 @@ function isEmptyMarker(name) {
 // ======================
 // HERBY KLUBÓW (tylko wyświetlanie — eksport/kopiowanie dalej używa skrótów)
 // ======================
+// Dane klubów (nazwy + herby) są w osobnym pliku clubs.js (ładowanym przed
+// draw.js), jako globalna stała CLUBS. Tu jest tylko logika.
 // Klucz = znormalizowany skrót: wielkie litery, Ł→L, bez diakrytyków — żeby
 // dopasować niezależnie od tego, jak klub wpisano na liście (np. "OŁA"/"OLA").
-// Pełna nazwa trafia do tooltipa. Pole `logo` ustawiamy dopiero, gdy plik herbu
-// faktycznie leży w logos/ — kluby bez herbu dostają pusty herb-placeholder.
-const CLUBS = {
-  ZAG: { name: "Zagryfka Tczew", logo: "logos/ZAG.png" },
-  DWU: { name: "Dwunastka Warszawa", logo: "logos/DWU.png" },
-  ZAK: { name: "Zakręgleni Szczecin", logo: "logos/ZAK.png" },
-  PUS: { name: "Puszczyki Mölkky Puszczykowo", logo: "logos/PUS.png" },
-  SUD: { name: "Suden Vuori", logo: "logos/SUD.png" },
-  FOR: { name: "KF Format Sztum", logo: "logos/FOR.png" },
-  TIM: { name: "Timbers Bojanowo", logo: "logos/TIM.png" },
-  BES: { name: "Beskid Mölkky Team", logo: "logos/BES.png" },
-  SIL: { name: "AKF Silesia Chorzów", logo: "logos/SIL.png" },
-  FOL: { name: "Festiwal Folkowisko", logo: "logos/FOL.png" },
-  LIS: { name: "LIS-ki Team Gryfów Śląski", logo: "logos/LIS.png" },
-  ZBI: { name: "ŚKKF Zbijaki", logo: "logos/ZBI.png" },
-  SAO: { name: "Stowarzyszenie Aktywny Orlik", logo: "logos/SAO.png" },
-  LEM: { name: "Lemolki Chojnice" },
-  DEM: { name: "Demölkky Gdynia", logo: "logos/DEM.png" },
-  ROS: { name: "Rosengarten Rats Berlin", logo: "logos/ROS.png" },
-  MAT: { name: "Mat4" },
-  OLA: { name: "Mölkky Oława", logo: "logos/OLA.png" },
-  BPK: { name: "Bez Pudła Kępno" },
-  KSP: { name: "KS Petanque Oława", logo: "logos/KSP.png" },
-};
+const CLUB_DATA = (typeof CLUBS !== "undefined") ? CLUBS : {};
 
 function clubKey(s) {
   return (s || "").trim().toUpperCase()
@@ -170,7 +149,7 @@ function clubBadge(club) {
   if (!club || club === "-") return "";
   const raw = club.trim();
   const acr = raw.toUpperCase();
-  const info = CLUBS[clubKey(raw)];
+  const info = CLUB_DATA[clubKey(raw)];
   const title = info ? info.name : raw;
   if (info && info.logo) {
     return `<img class="clubLogo" src="${escapeHtml(info.logo)}" alt="${escapeHtml(acr)}"` +
