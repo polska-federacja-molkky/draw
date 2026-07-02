@@ -490,8 +490,8 @@ summary:focus-visible {
 .resultTable th,
 .resultTable td {
   border: 1px solid #e2e4e8;
-  padding: 8px 10px;
-  vertical-align: top;
+  padding: 5px 10px;
+  vertical-align: middle;
 }
 
 .resultTable thead th {
@@ -531,6 +531,9 @@ summary:focus-visible {
   align-items: center;
   gap: 6px;
   line-height: 1.15;
+  /* Stała wysokość ~3 wierszy: 2- i 3-wierszowe wpisy mają równe wiersze,
+     a treść wyśrodkowana w pionie (poziomo nazwa zostaje do lewej). */
+  min-height: 64px;
 }
 
 /* Blok imię+nazwisko po lewej; herb ląduje po prawej stronie komórki. */
