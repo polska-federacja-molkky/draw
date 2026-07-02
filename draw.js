@@ -201,6 +201,32 @@ function cellMarkup(name, club) {
     `</div>`;
 }
 
+// Auto-dopasowanie: długie imię/nazwisko zmniejsza czcionkę, aż zmieści się
+// w jednej linii — dzięki temu każdy wpis mieści się w 2 rzędach, a krótkie
+// nazwy zostają duże. Herb po prawej zabiera szerokość, więc bez tego
+// najdłuższe nazwiska łamią się na 3 linie.
+const NAME_FONT_MAX = 18, NAME_FONT_MIN = 11;
+function fitName(span) {
+  if (!span || !span.textContent) return;
+  span.style.fontSize = "";                 // reset do domyślnych 18px
+  // Łamanie tylko na myślniku/spacji (CSS). Dopóki tekst wystaje poza szerokość
+  // komórki, zmniejszaj czcionkę: pojedyncze słowa trafiają do jednej linii,
+  // człony z myślnikiem łamią się i mieszczą bez najeżdżania na herb.
+  let fs = NAME_FONT_MAX, guard = 0;
+  while (fs > NAME_FONT_MIN && span.scrollWidth > span.clientWidth + 1 && guard < 12) {
+    fs -= 1;
+    span.style.fontSize = fs + "px";
+    guard++;
+  }
+}
+function fitCell(cell) {
+  if (!cell) return;
+  cell.querySelectorAll(".firstName, .lastName").forEach(fitName);
+}
+function fitAllCells() {
+  document.querySelectorAll(".resultTable td .cell").forEach(fitCell);
+}
+
 function parseInput(text, teamMode, useBaskets = true) {
   const lines = text.split(/\r?\n/);
   const baskets = [];
@@ -716,6 +742,7 @@ function nextStep() {
 
   if (cell) {
     cell.innerHTML = cellMarkup(s.player.name, s.player.club);
+    fitCell(cell.querySelector(".cell"));
   }
 
   addLog(`${s.basketLabel} → ${s.groupLabel}: ${s.player.name}${s.player.club ? " (" + s.player.club + ")" : ""}`);
@@ -1099,6 +1126,7 @@ function loadState() {
     const cell = document.getElementById(`cell-b${s.basketIndex}-g${s.groupIndex}`);
     if (!cell) continue;
     cell.innerHTML = cellMarkup(s.player.name, s.player.club);
+    fitCell(cell.querySelector(".cell"));
   }
 
   const logEl = document.getElementById("log");
@@ -1126,4 +1154,11 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("input")?.addEventListener("input", renderValidation);
   document.getElementById("groupCount")?.addEventListener("input", renderValidation);
   updateModeUI();
+
+  // Zmiana szerokości okna zmienia szerokość kolumn → przelicz dopasowanie nazw.
+  let fitTimer = null;
+  window.addEventListener("resize", () => {
+    clearTimeout(fitTimer);
+    fitTimer = setTimeout(fitAllCells, 150);
+  });
 });
