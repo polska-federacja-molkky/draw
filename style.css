@@ -556,6 +556,30 @@ summary:focus-visible {
   margin-top: 2px;
 }
 
+/* Herb klubu zamiast skrótu (skrót zostaje w tooltipie i w eksporcie). */
+.cell .clubLogo {
+  margin-top: 3px;
+}
+
+img.clubLogo {
+  height: 28px;
+  width: auto;
+  max-width: 52px;
+  object-fit: contain;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+/* Pusty herb-placeholder dla klubów bez logotypu. */
+.clubLogo--empty {
+  display: inline-block;
+  width: 24px;
+  height: 28px;
+  opacity: 0.9;
+  background: center / contain no-repeat
+    url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2048%2056'%3E%3Cpath%20d='M24%203%20L44%2010%20V28%20C44%2041%2035%2050%2024%2054%20C13%2050%204%2041%204%2028%20V10%20Z'%20fill='%23eef0f4'%20stroke='%23c2c7d2'%20stroke-width='2.5'%20stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
 .cell.empty .firstName {
   color: #c2c5cc;
   font-weight: 400;
