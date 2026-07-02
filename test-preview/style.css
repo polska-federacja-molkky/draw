@@ -637,9 +637,66 @@ img.clubLogo {
   letter-spacing: .3px;
 }
 /* .statCell zostaje table-cell (bez flex!), spany układamy blokowo. */
-.statAvg, .statMed { display: block; line-height: 1.25; }
-.statAvg { font-weight: 700; font-size: 13px; color: #1a2448; }
-.statMed { font-size: 11px; color: #6b6e76; }
+.statAvg, .statMed { display: block; line-height: 1.2; }
+/* Mediana = główna liczba (duża), średnia pomocniczo pod spodem. */
+.statMed { font-size: 12px; color: #4a4f5e; }
+.statMed b { font-size: 20px; font-weight: 800; color: #1a2448; }
+.statAvg { font-size: 11px; color: #8a8f9c; margin-top: 1px; }
+
+/* Pasek „siły” grupy wg mediany. */
+.strengthBar {
+  display: block;
+  height: 5px;
+  max-width: 130px;
+  margin: 5px auto 0;
+  background: #e6e8ef;
+  border-radius: 3px;
+  overflow: hidden;
+}
+.strengthFill {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #6474b5, #1a2448);
+  border-radius: 3px;
+}
+
+/* Podsumowanie pod tabelą: ciekawostki + macierz klubów. */
+.drawSummary { margin-top: 10px; }
+.summaryFacts { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+.factChip {
+  background: #eef1f8;
+  border: 1px solid #dde1ee;
+  border-radius: 999px;
+  padding: 5px 13px;
+  font-size: 13px;
+  color: #1a2448;
+}
+.factChip b { font-weight: 800; }
+.clubMatrix > summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 13px;
+  color: #1a2448;
+  padding: 4px 0;
+}
+.matrixWrap { overflow-x: auto; }
+.matrixTable { border-collapse: collapse; font-size: 12px; margin-top: 6px; }
+.matrixTable th, .matrixTable td {
+  border: 1px solid #e2e4e8;
+  padding: 3px 8px;
+  text-align: center;
+}
+.matrixTable thead th { background: #1a2448; color: #fff; font-size: 11px; font-weight: 700; }
+.matrixTable tbody th {
+  text-align: left;
+  background: #f7f8fc;
+  white-space: nowrap;
+  font-weight: 700;
+  font-size: 11px;
+  color: #1a2448;
+}
+.matrixTable td.hot { background: #fde4c0; font-weight: 800; color: #8a5a00; }
+.matrixTable td.zero { color: #d0d3da; }
 
 /* ŻYWSZE ODSŁANIANIE — animowana jest tylko świeżo wylosowana komórka
    (klasa justDrawn na <td>), NIE wszystkie przy odświeżeniu strony. */
