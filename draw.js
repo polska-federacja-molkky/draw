@@ -510,29 +510,92 @@ function buildTable(baskets, groupCount, useBaskets = true) {
 
   wrap.innerHTML = "";
   wrap.appendChild(table);
+
+  const box = document.getElementById("drawSummary");
+  if (box) { box.innerHTML = ""; box.hidden = true; }
 }
 
-// Statystyki rankingowe pod grupami: średnia i mediana punktów.
+// Statystyki po zakończeniu losowania:
+//  • stopka pod grupami: MEDIANA (główna) + średnia + pasek „siły”
+//  • ciekawostki: najbardziej różnorodna grupa, najwyższa mediana
+//  • rozwijana macierz klub × grupa (podświetlone 2+ tego samego klubu w grupie)
 // Placeholdery („gracz N") i „X" pomijamy; brak w rankingu = 0 pkt.
 function renderGroupStats() {
   const row = document.querySelector(".resultTable .statRow");
   if (!row || !STATE.started) return;
-  const per = Array.from({ length: STATE.groupCount }, () => []);
+  const G = STATE.groupCount;
+
+  const groupPoints = Array.from({ length: G }, () => []);
+  const clubs = {};   // klucz → {label, name, counts:[G], total}
   for (const s of STATE.steps) {
-    const info = playerPoints(s.player && s.player.name);
-    if (info) per[s.groupIndex].push(info.points);
+    const nm = s.player && s.player.name;
+    const info = playerPoints(nm);
+    if (info) groupPoints[s.groupIndex].push(info.points);
+
+    const club = s.player && s.player.club;
+    if (club && club !== "-" && !isPlaceholderLine(nm || "") && !isEmptyMarker(nm || "")) {
+      const k = clubKey(club);
+      if (!clubs[k]) {
+        const ci = CLUB_DATA[k];
+        clubs[k] = { label: club.trim().toUpperCase(), name: ci ? ci.name : club.trim(),
+                     counts: Array(G).fill(0), total: 0 };
+      }
+      clubs[k].counts[s.groupIndex]++;
+      clubs[k].total++;
+    }
   }
-  for (let g = 0; g < STATE.groupCount; g++) {
+
+  const meds = groupPoints.map(a => a.length ? median(a) : 0);
+  const avgs = groupPoints.map(a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0);
+  const maxMed = Math.max(1, ...meds);
+
+  // Stopka: mediana (duża) + średnia + pasek siły (mediana / maks. mediana)
+  for (let g = 0; g < G; g++) {
     const cell = document.getElementById(`stat-g${g}`);
     if (!cell) continue;
-    const arr = per[g];
-    if (!arr.length) { cell.innerHTML = ""; continue; }
-    const avg = arr.reduce((a, b) => a + b, 0) / arr.length;
+    if (!groupPoints[g].length) { cell.innerHTML = ""; continue; }
+    const pct = Math.round(meds[g] / maxMed * 100);
     cell.innerHTML =
-      `<span class="statAvg">śr. ${Math.round(avg)}</span>` +
-      `<span class="statMed">mediana ${Math.round(median(arr))}</span>`;
+      `<span class="statMed">mediana <b>${Math.round(meds[g])}</b></span>` +
+      `<span class="statAvg">śr. ${Math.round(avgs[g])} pkt</span>` +
+      `<span class="strengthBar" title="Siła grupy wg mediany"><span class="strengthFill" style="width:${pct}%"></span></span>`;
   }
   row.hidden = false;
+
+  // Ciekawostki + macierz klubów pod tabelą
+  const box = document.getElementById("drawSummary");
+  if (!box) return;
+  const distinct = Array.from({ length: G }, (_, g) =>
+    Object.values(clubs).filter(c => c.counts[g] > 0).length);
+  const divG = distinct.indexOf(Math.max(...distinct));
+  const strongG = meds.indexOf(Math.max(...meds));
+
+  const facts =
+    `<span class="factChip">🎲 Najbardziej różnorodna: <b>${groupLabel(divG)}</b> · ${distinct[divG]} klubów</span>` +
+    `<span class="factChip">💪 Najwyższa mediana: <b>${groupLabel(strongG)}</b> · ${Math.round(meds[strongG])} pkt</span>`;
+
+  const sorted = Object.values(clubs).sort((a, b) => b.total - a.total || a.label.localeCompare(b.label));
+  let matrix = "";
+  if (sorted.length) {
+    let head = `<tr><th>Klub</th>`;
+    for (let g = 0; g < G; g++) head += `<th>${escapeHtml(excelLetters(g))}</th>`;
+    head += `<th>Σ</th></tr>`;
+    let body = "";
+    for (const c of sorted) {
+      body += `<tr><th title="${escapeHtml(c.name)}">${escapeHtml(c.label)}</th>`;
+      for (let g = 0; g < G; g++) {
+        const n = c.counts[g];
+        const cls = n === 0 ? "zero" : (n >= 2 ? "hot" : "");
+        body += `<td class="${cls}">${n || ""}</td>`;
+      }
+      body += `<th>${c.total}</th></tr>`;
+    }
+    matrix =
+      `<details class="clubMatrix"><summary>Rozkład klubów po grupach (${sorted.length} ${plural(sorted.length, ["klub", "kluby", "klubów"])})</summary>` +
+      `<div class="matrixWrap"><table class="matrixTable"><thead>${head}</thead><tbody>${body}</tbody></table></div></details>`;
+  }
+  box.innerHTML = `<div class="summaryFacts">${facts}</div>${matrix}`;
+  box.hidden = false;
 }
 
 // ======================
