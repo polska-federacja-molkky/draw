@@ -562,22 +562,33 @@ summary:focus-visible {
 }
 
 img.clubLogo {
-  height: 28px;
+  height: 34px;
   width: auto;
-  max-width: 52px;
+  max-width: 60px;
   object-fit: contain;
   display: inline-block;
   vertical-align: middle;
 }
 
-/* Pusty herb-placeholder dla klubów bez logotypu. */
+/* Szary herb-placeholder z akronimem — kluby bez logotypu. */
 .clubLogo--empty {
-  display: inline-block;
-  width: 24px;
-  height: 28px;
-  opacity: 0.9;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 34px;
   background: center / contain no-repeat
     url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2048%2056'%3E%3Cpath%20d='M24%203%20L44%2010%20V28%20C44%2041%2035%2050%2024%2054%20C13%2050%204%2041%204%2028%20V10%20Z'%20fill='%23eef0f4'%20stroke='%23c2c7d2'%20stroke-width='2.5'%20stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+.clubAcr {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  line-height: 1;
+  color: #7b8193;
+  transform: translateY(-2px); /* wyśrodkuj nad ostrzem tarczy */
 }
 
 .cell.empty .firstName {
