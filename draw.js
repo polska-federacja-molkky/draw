@@ -180,21 +180,23 @@ function clubBadge(club) {
   return placeholderHtml(acr, title);
 }
 
-// Renderuje zawartość komórki w układzie trójwierszowym:
-// imię / nazwisko / herb klubu. Pionowo mamy dużo miejsca, więc rozbicie
-// nazwiska na osobny wiersz pozwala na większą, czytelniejszą czcionkę.
+// Renderuje zawartość komórki: imię/nazwisko w bloku po lewej, herb klubu
+// po prawej stronie. Rozbicie nazwiska na osobny wiersz daje większą czcionkę,
+// a herb obok nie zabiera pionu.
 function cellMarkup(name, club) {
   const isEmpty = (name === "—" && club === "—");
   if (isEmpty) {
-    return `<div class="cell empty"><span class="firstName">—</span></div>`;
+    return `<div class="cell empty"><div class="cellName"><span class="firstName">—</span></div></div>`;
   }
   const trimmed = (name || "").trim();
   const sp = trimmed.indexOf(" ");
   const first = sp > 0 ? trimmed.slice(0, sp) : trimmed;
   const last  = sp > 0 ? trimmed.slice(sp + 1) : "";
   return `<div class="cell filled">` +
-    `<span class="firstName">${escapeHtml(first)}</span>` +
-    (last ? `<span class="lastName">${escapeHtml(last)}</span>` : "") +
+    `<div class="cellName">` +
+      `<span class="firstName">${escapeHtml(first)}</span>` +
+      (last ? `<span class="lastName">${escapeHtml(last)}</span>` : "") +
+    `</div>` +
     clubBadge(club) +
     `</div>`;
 }
