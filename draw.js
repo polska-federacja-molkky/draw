@@ -113,26 +113,26 @@ function isEmptyMarker(name) {
 // Pełna nazwa trafia do tooltipa. Pole `logo` ustawiamy dopiero, gdy plik herbu
 // faktycznie leży w logos/ — kluby bez herbu dostają pusty herb-placeholder.
 const CLUBS = {
-  ZAG: { name: "Zagryfka Tczew" },
-  DWU: { name: "Dwunastka Warszawa" },
-  ZAK: { name: "Zakręgleni Szczecin" },
-  PUS: { name: "Puszczyki Mölkky Puszczykowo" },
+  ZAG: { name: "Zagryfka Tczew", logo: "logos/ZAG.png" },
+  DWU: { name: "Dwunastka Warszawa", logo: "logos/DWU.png" },
+  ZAK: { name: "Zakręgleni Szczecin", logo: "logos/ZAK.png" },
+  PUS: { name: "Puszczyki Mölkky Puszczykowo", logo: "logos/PUS.png" },
   SUD: { name: "Suden Vuori" },
-  FOR: { name: "KF Format Sztum" },
-  TIM: { name: "Timbers Bojanowo" },
-  BES: { name: "Beskid Mölkky Team" },
-  SIL: { name: "AKF Silesia Chorzów" },
-  FOL: { name: "Festiwal Folkowisko" },
-  LIS: { name: "LIS-ki Team Gryfów Śląski" },
-  ZBI: { name: "ŚKKF Zbijaki" },
-  SAO: { name: "Stowarzyszenie Aktywny Orlik" },
+  FOR: { name: "KF Format Sztum", logo: "logos/FOR.png" },
+  TIM: { name: "Timbers Bojanowo", logo: "logos/TIM.png" },
+  BES: { name: "Beskid Mölkky Team", logo: "logos/BES.png" },
+  SIL: { name: "AKF Silesia Chorzów", logo: "logos/SIL.png" },
+  FOL: { name: "Festiwal Folkowisko", logo: "logos/FOL.png" },
+  LIS: { name: "LIS-ki Team Gryfów Śląski", logo: "logos/LIS.png" },
+  ZBI: { name: "ŚKKF Zbijaki", logo: "logos/ZBI.png" },
+  SAO: { name: "Stowarzyszenie Aktywny Orlik", logo: "logos/SAO.png" },
   LEM: { name: "Lemolki Chojnice" },
-  DEM: { name: "Demölkky Gdynia" },
-  ROS: { name: "Rosengarten Rats Berlin" },
+  DEM: { name: "Demölkky Gdynia", logo: "logos/DEM.png" },
+  ROS: { name: "Rosengarten Rats Berlin", logo: "logos/ROS.png" },
   MAT: { name: "Mat4" },
-  OLA: { name: "Mölkky Oława" },
+  OLA: { name: "Mölkky Oława", logo: "logos/OLA.png" },
   BPK: { name: "Bez Pudła Kępno" },
-  KSP: { name: "KS Petanque Oława" },
+  KSP: { name: "KS Petanque Oława", logo: "logos/KSP.png" },
 };
 
 function clubKey(s) {
@@ -141,33 +141,43 @@ function clubKey(s) {
     .normalize("NFD").replace(/[̀-ͯ]/g, "");
 }
 
-// Pusty herb-placeholder jako element DOM (używane też z onerror <img>).
-function makeClubPlaceholder(title) {
+// Szary herb-placeholder z akronimem klubu — dla klubów bez logotypu.
+// Zwraca element DOM (używane też z onerror <img>, gdy pliku herbu brakło).
+function makeClubPlaceholder(acr, title) {
   const s = document.createElement("span");
   s.className = "clubLogo clubLogo--empty";
-  s.title = title || "";
+  s.title = title || acr || "";
   s.setAttribute("role", "img");
-  s.setAttribute("aria-label", title || "");
+  s.setAttribute("aria-label", title || acr || "");
+  const t = document.createElement("span");
+  t.className = "clubAcr";
+  t.textContent = acr || "";
+  s.appendChild(t);
   return s;
 }
 
+function placeholderHtml(acr, title) {
+  return `<span class="clubLogo clubLogo--empty" title="${escapeHtml(title)}"` +
+    ` role="img" aria-label="${escapeHtml(title)}">` +
+    `<span class="clubAcr">${escapeHtml(acr)}</span></span>`;
+}
+
 // Zwraca HTML odznaki klubu do komórki wyniku:
-//  • brak klubu ("-") → nic
-//  • klub z herbem     → <img> (z fallbackiem na placeholder przy braku pliku)
-//  • klub bez herbu    → pusty herb-placeholder (nazwa w tooltipie)
-//  • nieznany skrót    → tekst skrótu (nic nie chowamy)
+//  • brak klubu ("-")         → nic
+//  • klub z herbem            → <img> (fallback na placeholder, gdy pliku brak)
+//  • klub bez herbu / nieznany → szara tarcza z 3-literowym akronimem
 function clubBadge(club) {
   if (!club || club === "-") return "";
   const raw = club.trim();
+  const acr = raw.toUpperCase();
   const info = CLUBS[clubKey(raw)];
-  if (!info) return `<span class="club">${escapeHtml(raw)}</span>`;
-  const title = escapeHtml(info.name);
-  if (info.logo) {
-    return `<img class="clubLogo" src="${escapeHtml(info.logo)}" alt="${escapeHtml(raw)}"` +
-      ` title="${title}" loading="lazy"` +
-      ` onerror="this.replaceWith(makeClubPlaceholder(this.title))">`;
+  const title = info ? info.name : raw;
+  if (info && info.logo) {
+    return `<img class="clubLogo" src="${escapeHtml(info.logo)}" alt="${escapeHtml(acr)}"` +
+      ` title="${escapeHtml(title)}" loading="lazy" data-acr="${escapeHtml(acr)}"` +
+      ` onerror="this.replaceWith(makeClubPlaceholder(this.dataset.acr, this.title))">`;
   }
-  return `<span class="clubLogo clubLogo--empty" title="${title}" role="img" aria-label="${title}"></span>`;
+  return placeholderHtml(acr, title);
 }
 
 // Renderuje zawartość komórki w układzie trójwierszowym:
