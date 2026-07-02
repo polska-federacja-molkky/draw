@@ -105,9 +105,74 @@ function isEmptyMarker(name) {
   return typeof name === "string" && name.trim().toLowerCase() === "x";
 }
 
+// ======================
+// HERBY KLUBÓW (tylko wyświetlanie — eksport/kopiowanie dalej używa skrótów)
+// ======================
+// Klucz = znormalizowany skrót: wielkie litery, Ł→L, bez diakrytyków — żeby
+// dopasować niezależnie od tego, jak klub wpisano na liście (np. "OŁA"/"OLA").
+// Pełna nazwa trafia do tooltipa. Pole `logo` ustawiamy dopiero, gdy plik herbu
+// faktycznie leży w logos/ — kluby bez herbu dostają pusty herb-placeholder.
+const CLUBS = {
+  ZAG: { name: "Zagryfka Tczew" },
+  DWU: { name: "Dwunastka Warszawa" },
+  ZAK: { name: "Zakręgleni Szczecin" },
+  PUS: { name: "Puszczyki Mölkky Puszczykowo" },
+  SUD: { name: "Suden Vuori" },
+  FOR: { name: "KF Format Sztum" },
+  TIM: { name: "Timbers Bojanowo" },
+  BES: { name: "Beskid Mölkky Team" },
+  SIL: { name: "AKF Silesia Chorzów" },
+  FOL: { name: "Festiwal Folkowisko" },
+  LIS: { name: "LIS-ki Team Gryfów Śląski" },
+  ZBI: { name: "ŚKKF Zbijaki" },
+  SAO: { name: "Stowarzyszenie Aktywny Orlik" },
+  LEM: { name: "Lemolki Chojnice" },
+  DEM: { name: "Demölkky Gdynia" },
+  ROS: { name: "Rosengarten Rats Berlin" },
+  MAT: { name: "Mat4" },
+  OLA: { name: "Mölkky Oława" },
+  BPK: { name: "Bez Pudła Kępno" },
+  KSP: { name: "KS Petanque Oława" },
+};
+
+function clubKey(s) {
+  return (s || "").trim().toUpperCase()
+    .replace(/Ł/g, "L")
+    .normalize("NFD").replace(/[̀-ͯ]/g, "");
+}
+
+// Pusty herb-placeholder jako element DOM (używane też z onerror <img>).
+function makeClubPlaceholder(title) {
+  const s = document.createElement("span");
+  s.className = "clubLogo clubLogo--empty";
+  s.title = title || "";
+  s.setAttribute("role", "img");
+  s.setAttribute("aria-label", title || "");
+  return s;
+}
+
+// Zwraca HTML odznaki klubu do komórki wyniku:
+//  • brak klubu ("-") → nic
+//  • klub z herbem     → <img> (z fallbackiem na placeholder przy braku pliku)
+//  • klub bez herbu    → pusty herb-placeholder (nazwa w tooltipie)
+//  • nieznany skrót    → tekst skrótu (nic nie chowamy)
+function clubBadge(club) {
+  if (!club || club === "-") return "";
+  const raw = club.trim();
+  const info = CLUBS[clubKey(raw)];
+  if (!info) return `<span class="club">${escapeHtml(raw)}</span>`;
+  const title = escapeHtml(info.name);
+  if (info.logo) {
+    return `<img class="clubLogo" src="${escapeHtml(info.logo)}" alt="${escapeHtml(raw)}"` +
+      ` title="${title}" loading="lazy"` +
+      ` onerror="this.replaceWith(makeClubPlaceholder(this.title))">`;
+  }
+  return `<span class="clubLogo clubLogo--empty" title="${title}" role="img" aria-label="${title}"></span>`;
+}
+
 // Renderuje zawartość komórki w układzie trójwierszowym:
-// imię / nazwisko / klub. Pionowo mamy dużo miejsca, więc rozbicie nazwiska
-// na osobny wiersz pozwala na większą, czytelniejszą czcionkę.
+// imię / nazwisko / herb klubu. Pionowo mamy dużo miejsca, więc rozbicie
+// nazwiska na osobny wiersz pozwala na większą, czytelniejszą czcionkę.
 function cellMarkup(name, club) {
   const isEmpty = (name === "—" && club === "—");
   if (isEmpty) {
@@ -117,11 +182,10 @@ function cellMarkup(name, club) {
   const sp = trimmed.indexOf(" ");
   const first = sp > 0 ? trimmed.slice(0, sp) : trimmed;
   const last  = sp > 0 ? trimmed.slice(sp + 1) : "";
-  const clubStr = club && club !== "-" ? club : "";
   return `<div class="cell filled">` +
     `<span class="firstName">${escapeHtml(first)}</span>` +
     (last ? `<span class="lastName">${escapeHtml(last)}</span>` : "") +
-    (clubStr ? `<span class="club">${escapeHtml(clubStr)}</span>` : "") +
+    clubBadge(club) +
     `</div>`;
 }
 
