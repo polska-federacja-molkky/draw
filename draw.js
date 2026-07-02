@@ -117,7 +117,7 @@ const CLUBS = {
   DWU: { name: "Dwunastka Warszawa", logo: "logos/DWU.png" },
   ZAK: { name: "Zakręgleni Szczecin", logo: "logos/ZAK.png" },
   PUS: { name: "Puszczyki Mölkky Puszczykowo", logo: "logos/PUS.png" },
-  SUD: { name: "Suden Vuori" },
+  SUD: { name: "Suden Vuori", logo: "logos/SUD.png" },
   FOR: { name: "KF Format Sztum", logo: "logos/FOR.png" },
   TIM: { name: "Timbers Bojanowo", logo: "logos/TIM.png" },
   BES: { name: "Beskid Mölkky Team", logo: "logos/BES.png" },
