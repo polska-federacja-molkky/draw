@@ -571,16 +571,17 @@ summary:focus-visible {
   margin-top: 2px;
 }
 
-/* Herb klubu zamiast skrótu (skrót zostaje w tooltipie i w eksporcie). */
+/* Herb klubu — stały slot, żeby wszystkie herby stały w równej kolumnie
+   (wyśrodkowane niezależnie od proporcji logo). */
 .cell .clubLogo {
-  flex: 0 0 auto;
+  flex: 0 0 46px;
 }
 
 img.clubLogo {
+  width: 46px;
   height: 30px;
-  width: auto;
-  max-width: 44px;
   object-fit: contain;
+  object-position: center;
   display: inline-block;
   vertical-align: middle;
 }
@@ -591,7 +592,7 @@ img.clubLogo {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 27px;
+  width: 46px;
   height: 30px;
   background: center / contain no-repeat
     url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2048%2056'%3E%3Cpath%20d='M24%203%20L44%2010%20V28%20C44%2041%2035%2050%2024%2054%20C13%2050%204%2041%204%2028%20V10%20Z'%20fill='%23eef0f4'%20stroke='%23c2c7d2'%20stroke-width='2.5'%20stroke-linejoin='round'/%3E%3C/svg%3E");
@@ -611,6 +612,34 @@ img.clubLogo {
   font-weight: 400;
   font-size: 18px;
 }
+
+/* Debiutant — brak w rankingu punktowym. */
+.rookie {
+  font-size: 0.6em;
+  vertical-align: super;
+  margin-left: 2px;
+}
+
+/* Stopka: statystyki rankingowe pod grupami (średnia + mediana punktów). */
+.resultTable tfoot .statRow th,
+.resultTable tfoot .statRow td {
+  background: #f4f6fb;
+  border-top: 2px solid #1a2448;
+  text-align: center;
+  vertical-align: middle;
+  padding: 6px 8px;
+}
+.resultTable tfoot .statRow th {
+  font-size: 11px;
+  font-weight: 700;
+  color: #6b6e76;
+  text-transform: uppercase;
+  letter-spacing: .3px;
+}
+/* .statCell zostaje table-cell (bez flex!), spany układamy blokowo. */
+.statAvg, .statMed { display: block; line-height: 1.25; }
+.statAvg { font-weight: 700; font-size: 13px; color: #1a2448; }
+.statMed { font-size: 11px; color: #6b6e76; }
 
 /* ŻYWSZE ODSŁANIANIE — animowana jest tylko świeżo wylosowana komórka
    (klasa justDrawn na <td>), NIE wszystkie przy odświeżeniu strony. */

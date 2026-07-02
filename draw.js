@@ -159,9 +159,38 @@ function clubBadge(club) {
   return placeholderHtml(acr, title);
 }
 
+// ======================
+// RANKING PUNKTOWY (dane w ranking.js jako globalna stała RANKING)
+// ======================
+const RANKING_DATA = (typeof RANKING !== "undefined") ? RANKING : {};
+function rankKey(s) {
+  return (s || "").trim().toLowerCase()
+    .replace(/ł/g, "l")
+    .normalize("NFD").replace(/[̀-ͯ]/g, "")
+    .replace(/\s+/g, " ");
+}
+const RANKING_NORM = {};
+for (const name in RANKING_DATA) RANKING_NORM[rankKey(name)] = RANKING_DATA[name];
+
+// Zwraca {points, ranked} dla realnego zawodnika; null dla placeholderów/„X"/pustych.
+// Brak w rankingu → {points: 0, ranked: false} (liczy się jako 0, dostaje 🌱).
+function playerPoints(name) {
+  const t = (name || "").trim();
+  if (!t || t === "—" || isPlaceholderLine(t) || isEmptyMarker(t)) return null;
+  const key = rankKey(t);
+  if (key in RANKING_NORM) return { points: RANKING_NORM[key], ranked: true };
+  return { points: 0, ranked: false };
+}
+
+function median(arr) {
+  const s = [...arr].sort((a, b) => a - b);
+  const n = s.length, m = Math.floor(n / 2);
+  return n % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+}
+
 // Renderuje zawartość komórki: imię/nazwisko w bloku po lewej, herb klubu
 // po prawej stronie. Rozbicie nazwiska na osobny wiersz daje większą czcionkę,
-// a herb obok nie zabiera pionu.
+// a herb obok nie zabiera pionu. Debiutant (brak w rankingu) dostaje 🌱.
 function cellMarkup(name, club) {
   const isEmpty = (name === "—" && club === "—");
   if (isEmpty) {
@@ -171,13 +200,16 @@ function cellMarkup(name, club) {
   const sp = trimmed.indexOf(" ");
   const first = sp > 0 ? trimmed.slice(0, sp) : trimmed;
   const last  = sp > 0 ? trimmed.slice(sp + 1) : "";
-  return `<div class="cell filled">` +
-    `<div class="cellName">` +
-      `<span class="firstName">${escapeHtml(first)}</span>` +
-      (last ? `<span class="lastName">${escapeHtml(last)}</span>` : "") +
-    `</div>` +
-    clubBadge(club) +
-    `</div>`;
+  const info = playerPoints(trimmed);
+  const rookie = (info && !info.ranked)
+    ? ` <sup class="rookie" title="Debiutant — brak w rankingu">🌱</sup>` : "";
+  const firstHtml = escapeHtml(first);
+  const lastHtml  = escapeHtml(last);
+  const nameBlock = last
+    ? `<span class="firstName">${firstHtml}</span><span class="lastName">${lastHtml}${rookie}</span>`
+    : `<span class="firstName">${firstHtml}${rookie}</span>`;
+  return `<div class="cell filled"><div class="cellName">${nameBlock}</div>` +
+    clubBadge(club) + `</div>`;
 }
 
 // Auto-dopasowanie: długie imię/nazwisko zmniejsza czcionkę, aż zmieści się
@@ -459,8 +491,48 @@ function buildTable(baskets, groupCount, useBaskets = true) {
 
   table.appendChild(tbody);
 
+  // Stopka ze statystykami rankingowymi per grupa (wypełniana po zakończeniu).
+  const tfoot = document.createElement("tfoot");
+  const trStat = document.createElement("tr");
+  trStat.className = "statRow";
+  trStat.hidden = true;
+  const thStat = document.createElement("th");
+  thStat.textContent = "Punkty";
+  trStat.appendChild(thStat);
+  for (let g = 0; g < groupCount; g++) {
+    const td = document.createElement("td");
+    td.id = `stat-g${g}`;
+    td.className = "statCell";
+    trStat.appendChild(td);
+  }
+  tfoot.appendChild(trStat);
+  table.appendChild(tfoot);
+
   wrap.innerHTML = "";
   wrap.appendChild(table);
+}
+
+// Statystyki rankingowe pod grupami: średnia i mediana punktów.
+// Placeholdery („gracz N") i „X" pomijamy; brak w rankingu = 0 pkt.
+function renderGroupStats() {
+  const row = document.querySelector(".resultTable .statRow");
+  if (!row || !STATE.started) return;
+  const per = Array.from({ length: STATE.groupCount }, () => []);
+  for (const s of STATE.steps) {
+    const info = playerPoints(s.player && s.player.name);
+    if (info) per[s.groupIndex].push(info.points);
+  }
+  for (let g = 0; g < STATE.groupCount; g++) {
+    const cell = document.getElementById(`stat-g${g}`);
+    if (!cell) continue;
+    const arr = per[g];
+    if (!arr.length) { cell.innerHTML = ""; continue; }
+    const avg = arr.reduce((a, b) => a + b, 0) / arr.length;
+    cell.innerHTML =
+      `<span class="statAvg">śr. ${Math.round(avg)}</span>` +
+      `<span class="statMed">mediana ${Math.round(median(arr))}</span>`;
+  }
+  row.hidden = false;
 }
 
 // ======================
@@ -561,6 +633,7 @@ function refreshUI() {
       "done",
       `Losowanie zakończone: ${cnt} ${plural(cnt, unitForms)} w ${STATE.groupCount} ${plural(STATE.groupCount, ["grupie", "grupach", "grupach"])}`
     );
+    renderGroupStats();
   }
 
   // Panel danych zwija się przy przejściu do losowania (raz, by nie blokować edycji)

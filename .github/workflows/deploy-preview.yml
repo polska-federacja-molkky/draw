@@ -18,7 +18,7 @@ jobs:
         run: |
           rm -rf test-preview
           mkdir -p test-preview
-          cp index.html draw.js clubs.js style.css README.md PFM_logo.png test-preview/ || true
+          cp index.html draw.js clubs.js ranking.js style.css README.md PFM_logo.png test-preview/ || true
           cp -r logos test-preview/ || true
           ls -la test-preview
       - name: Deploy PREVIEW to GitHub Pages (subdirectory)
