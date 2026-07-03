@@ -6,7 +6,7 @@
   <title>Losowanie grup – Polska Federacja Mölkky</title>
   <link rel="icon" type="image/png" href="PFM_logo.png">
   <link rel="apple-touch-icon" href="PFM_logo.png">
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=85d4a01f">
 </head>
 <body>
 
@@ -31,6 +31,7 @@
       <span id="statusSub" class="statusSub" aria-live="polite"></span>
     </div>
     <div class="actionButtons">
+      <button id="btnFullscreen" class="btnGhost" onclick="toggleFullscreen()">⛶ Pełny ekran</button>
       <button id="btnRestart" class="btnGhost" onclick="newDrawConfirm()" hidden>Nowe losowanie</button>
       <button id="btnReset" class="btnGhost btnDanger" onclick="resetDraw()" hidden>Resetuj</button>
       <button id="btnCopy" class="btnGhost" onclick="copyResultsToClipboard()" hidden>Kopiuj do Excela</button>
@@ -103,6 +104,7 @@
   <section class="tableSection">
     <h2>Wynik losowania</h2>
     <div id="tableWrap"></div>
+    <div id="drawSummary" class="drawSummary" hidden></div>
   </section>
 
   <details class="logDetails">
@@ -111,7 +113,10 @@
   </details>
 </div>
 
-<script src="draw.js"></script>
+<script src="config.js?v=85d4a01f"></script>
+<script src="clubs.js?v=85d4a01f"></script>
+<script src="ranking.js?v=85d4a01f"></script>
+<script src="draw.js?v=85d4a01f"></script>
 <script>
   // helper: draw.js reads teamMode via this function
   Object.defineProperty(document, 'teamModeActive', {

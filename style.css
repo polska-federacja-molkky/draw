@@ -490,8 +490,8 @@ summary:focus-visible {
 .resultTable th,
 .resultTable td {
   border: 1px solid #e2e4e8;
-  padding: 8px 10px;
-  vertical-align: top;
+  padding: 5px 10px;
+  vertical-align: middle;
 }
 
 .resultTable thead th {
@@ -527,9 +527,22 @@ summary:focus-visible {
 
 .cell {
   display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  line-height: 1.15;
+  /* Stała wysokość ~3 wierszy: 2- i 3-wierszowe wpisy mają równe wiersze,
+     a treść wyśrodkowana w pionie (poziomo nazwa zostaje do lewej). */
+  min-height: 64px;
+}
+
+/* Blok imię+nazwisko po lewej; herb ląduje po prawej stronie komórki. */
+.cellName {
+  display: flex;
   flex-direction: column;
   gap: 2px;
-  line-height: 1.15;
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
 /* Układ trójwierszowy: imię / nazwisko / klub.
@@ -537,14 +550,16 @@ summary:focus-visible {
 .cell .firstName {
   font-weight: 500;
   font-size: 18px;
-  word-break: break-word;
+  word-break: normal;
+  overflow-wrap: normal;   /* bez łamania w środku słowa; tylko myślnik/spacja */
   color: #1a2448;
 }
 
 .cell .lastName {
   font-weight: 700;
   font-size: 18px;
-  word-break: break-word;
+  word-break: normal;
+  overflow-wrap: normal;
   color: #1a2448;
 }
 
@@ -556,32 +571,178 @@ summary:focus-visible {
   margin-top: 2px;
 }
 
+/* Herb klubu — stały slot, żeby wszystkie herby stały w równej kolumnie
+   (wyśrodkowane niezależnie od proporcji logo). */
+.cell .clubLogo {
+  flex: 0 0 46px;
+}
+
+img.clubLogo {
+  width: 46px;
+  height: 30px;
+  object-fit: contain;
+  object-position: center;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+/* Szary herb-placeholder z akronimem — kluby bez logotypu. */
+.clubLogo--empty {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 30px;
+  background: center / contain no-repeat
+    url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2048%2056'%3E%3Cpath%20d='M24%203%20L44%2010%20V28%20C44%2041%2035%2050%2024%2054%20C13%2050%204%2041%204%2028%20V10%20Z'%20fill='%23eef0f4'%20stroke='%23c2c7d2'%20stroke-width='2.5'%20stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+.clubAcr {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  line-height: 1;
+  color: #7b8193;
+  transform: translateY(-2px); /* wyśrodkuj nad ostrzem tarczy */
+}
+
 .cell.empty .firstName {
   color: #c2c5cc;
   font-weight: 400;
   font-size: 18px;
 }
 
-@keyframes cellFadeIn {
-  from { opacity: 0; transform: translateY(-4px); }
-  to   { opacity: 1; transform: translateY(0); }
+/* Debiutant — brak w rankingu punktowym. */
+.rookie {
+  font-size: 0.6em;
+  vertical-align: super;
+  margin-left: 2px;
 }
 
-.cell.filled {
-  animation: cellFadeIn 0.25s ease-out;
+/* Stopka: statystyki rankingowe pod grupami (średnia + mediana punktów). */
+.resultTable tfoot .statRow th,
+.resultTable tfoot .statRow td {
+  background: #f4f6fb;
+  border-top: 2px solid #1a2448;
+  text-align: center;
+  vertical-align: middle;
+  padding: 6px 8px;
 }
+.resultTable tfoot .statRow th {
+  font-size: 11px;
+  font-weight: 700;
+  color: #6b6e76;
+  text-transform: uppercase;
+  letter-spacing: .3px;
+}
+/* .statCell zostaje table-cell (bez flex!), spany układamy blokowo. */
+.statAvg, .statMed { display: block; line-height: 1.2; }
+/* Mediana = główna liczba (duża), średnia pomocniczo pod spodem. */
+.statMed { font-size: 12px; color: #4a4f5e; }
+.statMed b { font-size: 20px; font-weight: 800; color: #1a2448; }
+.statAvg { font-size: 11px; color: #8a8f9c; margin-top: 1px; }
+
+/* Pasek „siły” grupy wg mediany. */
+.strengthBar {
+  display: block;
+  height: 5px;
+  max-width: 130px;
+  margin: 5px auto 0;
+  background: #e6e8ef;
+  border-radius: 3px;
+  overflow: hidden;
+}
+.strengthFill {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #6474b5, #1a2448);
+  border-radius: 3px;
+}
+
+/* Podsumowanie pod tabelą: ciekawostki + macierz klubów. */
+.drawSummary { margin-top: 10px; }
+.summaryFacts { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+.factChip {
+  background: #eef1f8;
+  border: 1px solid #dde1ee;
+  border-radius: 999px;
+  padding: 5px 13px;
+  font-size: 13px;
+  color: #1a2448;
+}
+.factChip b { font-weight: 800; }
+.clubMatrix > summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 13px;
+  color: #1a2448;
+  padding: 4px 0;
+}
+.matrixWrap { overflow-x: auto; }
+.matrixTable { border-collapse: collapse; font-size: 12px; margin-top: 6px; }
+.matrixTable th, .matrixTable td {
+  border: 1px solid #e2e4e8;
+  padding: 3px 8px;
+  text-align: center;
+}
+.matrixTable thead th { background: #1a2448; color: #fff; font-size: 11px; font-weight: 700; }
+.matrixTable tbody th {
+  text-align: left;
+  background: #f7f8fc;
+  white-space: nowrap;
+  font-weight: 700;
+  font-size: 11px;
+  color: #1a2448;
+}
+.matrixTable td.hot { background: #fde4c0; font-weight: 800; color: #8a5a00; }
+.matrixTable td.zero { color: #d0d3da; }
+
+/* ŻYWSZE ODSŁANIANIE — animowana jest tylko świeżo wylosowana komórka
+   (klasa justDrawn na <td>), NIE wszystkie przy odświeżeniu strony. */
+@keyframes cellPop {
+  0%   { opacity: 0; transform: scale(.90) translateY(-3px); }
+  60%  { opacity: 1; transform: scale(1.03); }
+  100% { transform: scale(1); }
+}
+@keyframes herbIn {
+  from { opacity: 0; transform: translateX(8px) scale(.85); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes drawGlow {
+  0%   { box-shadow: inset 0 0 0 3px rgba(192,20,28,.95); background: #fff2f2; }
+  70%  { box-shadow: inset 0 0 0 3px rgba(192,20,28,.35); }
+  100% { box-shadow: inset 0 0 0 0 rgba(192,20,28,0);     background: transparent; }
+}
+.resultTable td.justDrawn        { animation: drawGlow 1.2s ease-out; }
+.resultTable td.justDrawn .cell  { animation: cellPop 0.34s cubic-bezier(.2,.7,.3,1.25); }
+.resultTable td.justDrawn .clubLogo { animation: herbIn 0.4s ease-out .06s both; }
 
 @keyframes nextCellPulse {
-  0%, 100% { box-shadow: inset 0 0 0 2px rgba(192,20,28,.45); }
-  50%      { box-shadow: inset 0 0 0 3px rgba(192,20,28,.95); }
+  0%, 100% { box-shadow: inset 0 0 0 2px rgba(192,20,28,.5); }
+  50%      { box-shadow: inset 0 0 0 4px rgba(192,20,28,1); }
 }
 
 .resultTable td.nextCell {
   background: #fff0f0 !important;
-  animation: nextCellPulse 1.1s ease-in-out infinite;
+  animation: nextCellPulse 1.05s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .resultTable td.nextCell { animation: none; box-shadow: inset 0 0 0 2px #c0141c; }
-  .cell.filled { animation: none; }
+  .resultTable td.justDrawn,
+  .resultTable td.justDrawn .cell,
+  .resultTable td.justDrawn .clubLogo { animation: none; }
 }
+
+/* TRYB PREZENTACJI (pełny ekran) — chowa panele, zostawia pasek akcji i tabelę,
+   żeby wynik wypełnił ekran na rzutniku. Przycisk „Losuj dalej” pozostaje. */
+body.presenting .appHeader,
+body.presenting #infoBox,
+body.presenting #setup,
+body.presenting .logDetails {
+  display: none;
+}
+body.presenting .page { padding-top: 6px; }
+body.presenting .tableSection { margin-top: 4px; }
+body.presenting .tableSection h2 { margin: 2px 0 6px; }
