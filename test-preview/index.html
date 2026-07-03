@@ -6,7 +6,7 @@
   <title>Losowanie grup – Polska Federacja Mölkky</title>
   <link rel="icon" type="image/png" href="PFM_logo.png">
   <link rel="apple-touch-icon" href="PFM_logo.png">
-  <link rel="stylesheet" href="style.css?v=4f8014ca">
+  <link rel="stylesheet" href="style.css?v=1c64ff48">
 </head>
 <body>
 
@@ -81,6 +81,11 @@
           </label>
         </div>
 
+        <label class="preAssignRow" title="Gdy remis punktowy: puste miejsca w koszykach + blok „KOSZYK a/b/c" do rozlosowania">
+          <input type="checkbox" id="preAssignBaskets">
+          <span>Najpierw rozlosuj przydział do koszyków <em>(konflikty punktowe)</em></span>
+        </label>
+
         <details class="advanced">
           <summary>Opcje dodatkowe</summary>
           <div class="buttons secondary">
@@ -112,10 +117,10 @@
   </details>
 </div>
 
-<script src="config.js?v=4f8014ca"></script>
-<script src="clubs.js?v=4f8014ca"></script>
-<script src="ranking.js?v=4f8014ca"></script>
-<script src="draw.js?v=4f8014ca"></script>
+<script src="config.js?v=1c64ff48"></script>
+<script src="clubs.js?v=1c64ff48"></script>
+<script src="ranking.js?v=1c64ff48"></script>
+<script src="draw.js?v=1c64ff48"></script>
 <script>
   // helper: draw.js reads teamMode via this function
   Object.defineProperty(document, 'teamModeActive', {

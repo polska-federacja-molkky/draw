@@ -744,3 +744,16 @@ body.presenting .logDetails {
 body.presenting .page { padding-top: 6px; }
 body.presenting .tableSection { margin-top: 4px; }
 body.presenting .tableSection h2 { margin: 2px 0 6px; }
+
+/* Checkbox pre-losowania przydziału do koszyków (dyskretny). */
+.preAssignRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #4a4f5e;
+  margin: 4px 0 2px;
+  cursor: pointer;
+}
+.preAssignRow input { flex: 0 0 auto; }
+.preAssignRow em { color: #8a8f9c; font-style: normal; }

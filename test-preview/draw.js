@@ -266,6 +266,99 @@ function onFullscreenChange() {
   fitAllCells();   // układ się zmienił — przelicz dopasowanie nazw
 }
 
+// ======================
+// PRZYDZIAŁ DO KOSZYKÓW (pre-losowanie przy konfliktach punktowych)
+// ======================
+// Gdy nie da się jednoznacznie przypisać do koszyków (remis punktowy), zostawia
+// się puste wiersze w koszykach głównych, a osoby-konflikty w bloku „KOSZYK a/b/c"
+// (dalej w prawo). Ta funkcja rozlosowuje pulę w puste miejsca referowanych koszyków.
+function bgParseGrid(text) { return text.split(/\r?\n/).map(l => l.split("\t")); }
+function bgStripTrailingBlank(grid) {
+  let e = grid.length;
+  while (e > 0 && (grid[e - 1] || []).every(c => !(c || "").trim())) e--;
+  return grid.slice(0, e);
+}
+function bgIsKoszyk(c) { return /^KOSZYK\s+[\d/]+$/i.test((c || "").trim()); }
+function bgNums(c) { return ((c || "").match(/\d+/g) || []).map(Number); }
+function bgFindBlocks(grid) {
+  const b = [];
+  for (let r = 0; r < grid.length; r++) {
+    const row = grid[r] || [];
+    for (let c = 0; c < row.length; c++) {
+      const cell = (row[c] || "").trim();
+      if (bgIsKoszyk(cell)) { const n = bgNums(cell); b.push({ row: r, col: c, label: cell, baskets: n, conflict: n.length > 1 }); }
+    }
+  }
+  return b;
+}
+function bgEndRow(grid, blk, all) {
+  let e = grid.length;
+  for (const o of all) if (o.col === blk.col && o.row > blk.row && o.row < e) e = o.row;
+  return e;
+}
+
+// Zwraca null, jeśli nie ma bloków konfliktowych; inaczej {text, assignment, warnings}.
+function resolveBasketAssignment(text) {
+  const grid = bgStripTrailingBlank(bgParseGrid(text));
+  const blocks = bgFindBlocks(grid);
+  const confs = blocks.filter(b => b.conflict);
+  if (!confs.length) return null;
+  const mains = blocks.filter(b => !b.conflict);
+
+  const mainByNum = {};
+  for (const mb of mains) {
+    const end = bgEndRow(grid, mb, blocks);
+    const slots = [];
+    for (let r = mb.row + 1; r < end; r++) {
+      const name = (grid[r]?.[mb.col] || "").trim();
+      const club = (grid[r]?.[mb.col + 1] || "").trim();
+      slots.push(name ? { name, club: club || "-" } : { empty: true });
+    }
+    mainByNum[mb.baskets[0]] = { num: mb.baskets[0], slots };
+  }
+
+  const rnd = createSeededRandom(`${new Date().toISOString()}-${cryptoRandomInt()}`);
+  const warnings = [], assignment = [];
+  for (const cb of confs) {
+    const end = bgEndRow(grid, cb, blocks);
+    const pool = [];
+    for (let r = cb.row + 1; r < end; r++) {
+      const name = (grid[r]?.[cb.col] || "").trim();
+      const club = (grid[r]?.[cb.col + 1] || "").trim();
+      if (name && !bgIsKoszyk(name)) pool.push({ name, club: club || "-" });
+    }
+    shuffle(pool, rnd);
+    const targets = cb.baskets.filter(n => mainByNum[n]);
+    const emptyPer = targets.map(n => mainByNum[n].slots.filter(s => s.empty).length);
+    const totalEmpty = emptyPer.reduce((a, b) => a + b, 0);
+    if (pool.length !== totalEmpty) {
+      warnings.push(`Blok „${cb.label}": ${pool.length} os. vs ${totalEmpty} pustych miejsc (${targets.map((n, i) => `K${n}:${emptyPer[i]}`).join(", ")}).`);
+    }
+    let i = 0;
+    targets.forEach((n, bi) => {
+      let filled = 0;
+      for (const s of mainByNum[n].slots) {
+        if (s.empty && filled < emptyPer[bi] && i < pool.length) {
+          const p = pool[i++]; s.name = p.name; s.club = p.club; s.empty = false; s.conflict = true;
+          assignment.push({ basket: n, name: p.name, club: p.club });
+          filled++;
+        }
+      }
+    });
+  }
+
+  const nums = Object.keys(mainByNum).map(Number).sort((a, b) => a - b);
+  let out = "";
+  for (const n of nums) {
+    out += `KOSZYK ${n}\n`;
+    for (const s of mainByNum[n].slots) if (!s.empty) out += `${s.name}\t${s.club}\n`;
+  }
+  return { text: out.replace(/\n+$/, "") + "\n", assignment, warnings };
+}
+
+// Wynik ostatniego przydziału do koszyków — trafia do eksportu XLSX (osobna zakładka).
+let lastBasketAssignment = null;
+
 function parseInput(text, teamMode, useBaskets = true) {
   const lines = text.split(/\r?\n/);
   const baskets = [];
@@ -766,6 +859,7 @@ function newDraw() {
   if (wrap) wrap.innerHTML = "";
   const log = document.getElementById("log");
   if (log) log.innerHTML = "";
+  lastBasketAssignment = null;
   localStorage.removeItem(STORAGE_KEY);
   refreshUI();
   document.getElementById("input")?.focus();
@@ -796,6 +890,26 @@ function addLog(text) {
 // START / RESET
 // ======================
 function startDraw() {
+  // FAZA WSTĘPNA: rozlosowanie przydziału do koszyków (konflikty punktowe).
+  // Zaznaczony checkbox → najpierw rozlosuj pulę w puste miejsca, przepisz dane,
+  // odznacz checkbox i NIE startuj jeszcze losowania grup (kolejny klik = grupy).
+  const preAssign = document.getElementById("preAssignBaskets");
+  if (preAssign && preAssign.checked && drawPhase() === "idle") {
+    const inputEl = document.getElementById("input");
+    const res = resolveBasketAssignment(inputEl.value);
+    preAssign.checked = false;
+    if (!res) {
+      setStatus("idle", "Brak bloków konfliktowych (KOSZYK a/b/c) — kliknij ponownie, aby losować grupy.");
+      return;
+    }
+    inputEl.value = res.text;
+    lastBasketAssignment = { assignment: res.assignment, at: new Date().toISOString() };
+    renderValidation();
+    const warn = res.warnings.length ? " ⚠ " + res.warnings.join(" ") : "";
+    setStatus("idle", `Przydział do koszyków wylosowany (${res.assignment.length} os.). Kliknij „Rozpocznij losowanie", aby losować grupy.${warn}`);
+    return;
+  }
+
   const text = document.getElementById("input").value.trim();
   const groupCount = parseInt(document.getElementById("groupCount").value, 10);
   const teamMode = document.getElementById("modeTeam")?.checked === true;
