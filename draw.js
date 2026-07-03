@@ -206,18 +206,18 @@ function cellMarkup(name, club) {
   const sp = trimmed.indexOf(" ");
   const first = sp > 0 ? trimmed.slice(0, sp) : trimmed;
   const last  = sp > 0 ? trimmed.slice(sp + 1) : "";
-  // Listek 🌱 przy debiutancie — zawsze na górnym wierszu (przy imieniu),
-  // żeby przy długim/łamanym nazwisku nie wylądował na dole.
+  // Listek 🌱 przy debiutancie — osobny element obok nazwy, wyśrodkowany
+  // w pionie (między imieniem a nazwiskiem), nie doklejony do wiersza imienia.
   const info = RANKING_PRESENT ? playerPoints(trimmed) : null;
   const rookie = (info && !info.ranked)
-    ? `<sup class="rookie" title="Debiutant — brak w rankingu">🌱</sup>` : "";
+    ? `<span class="rookieDot" title="Debiutant — brak w rankingu">🌱</span>` : "";
   const firstHtml = escapeHtml(first);
   const lastHtml  = escapeHtml(last);
   const nameBlock = last
-    ? `<span class="firstName">${firstHtml}${rookie}</span><span class="lastName">${lastHtml}</span>`
-    : `<span class="firstName">${firstHtml}${rookie}</span>`;
+    ? `<span class="firstName">${firstHtml}</span><span class="lastName">${lastHtml}</span>`
+    : `<span class="firstName">${firstHtml}</span>`;
   return `<div class="cell filled"><div class="cellName">${nameBlock}</div>` +
-    clubBadge(club) + `</div>`;
+    rookie + clubBadge(club) + `</div>`;
 }
 
 // Auto-dopasowanie: długie imię/nazwisko zmniejsza czcionkę, aż zmieści się
@@ -560,16 +560,19 @@ function renderGroupStats() {
   const avgs = groupPoints.map(a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0);
   const maxMed = Math.max(1, ...meds);
 
-  // Stopka: mediana (duża) + średnia + pasek siły (mediana / maks. mediana)
+  // Stopka: mediana (duża) + średnia + segmentowy miernik siły (5 kresek,
+  // wypełnienie wg mediany względem najsilniejszej grupy).
   for (let g = 0; g < G; g++) {
     const cell = document.getElementById(`stat-g${g}`);
     if (!cell) continue;
     if (!groupPoints[g].length) { cell.innerHTML = ""; continue; }
-    const pct = Math.round(meds[g] / maxMed * 100);
+    const filled = Math.max(1, Math.round(meds[g] / maxMed * 5));
+    let meter = `<span class="meter" title="Siła grupy wg mediany">`;
+    for (let i = 0; i < 5; i++) meter += `<span class="seg${i < filled ? " on" : ""}"></span>`;
+    meter += `</span>`;
     cell.innerHTML =
       `<span class="statMed">mediana <b>${Math.round(meds[g])}</b></span>` +
-      `<span class="statAvg">śr. ${Math.round(avgs[g])} pkt</span>` +
-      `<span class="strengthBar" title="Siła grupy wg mediany"><span class="strengthFill" style="width:${pct}%"></span></span>`;
+      `<span class="statAvg">śr. ${Math.round(avgs[g])} pkt</span>` + meter;
   }
   row.hidden = false;
 
@@ -581,38 +584,22 @@ function renderGroupStats() {
   const divG = distinct.indexOf(Math.max(...distinct));
   const leastG = distinct.indexOf(Math.min(...distinct));
   const strongG = meds.indexOf(Math.max(...meds));
+  const weakG = meds.indexOf(Math.min(...meds));
 
-  // Najczęstsza wspólna pierwsza litera (imienia lub nazwiska) w jednej grupie.
-  let ini = { g: -1, letter: "", count: 0, kind: "" };
-  for (const [kind, idx] of [["imion", 0], ["nazwisk", 1]]) {
-    const per = Array.from({ length: G }, () => ({}));
-    for (const s of STATE.steps) {
-      const t = (s.player && s.player.name || "").trim();
-      if (!t || t === "—" || isPlaceholderLine(t) || isEmptyMarker(t)) continue;
-      const parts = t.split(/\s+/);
-      const tok = idx === 0 ? parts[0] : parts[parts.length - 1];
-      const L = (tok[0] || "").toUpperCase();
-      if (!L) continue;
-      const gm = per[s.groupIndex];
-      gm[L] = (gm[L] || 0) + 1;
-      if (gm[L] > ini.count) ini = { g: s.groupIndex, letter: L, count: gm[L], kind };
-    }
-  }
-
+  const clubWord = n => plural(n, ["klub", "kluby", "klubów"]);
   const topClubs = Object.values(clubs)
-    .sort((a, b) => b.total - a.total || a.label.localeCompare(b.label)).slice(0, 4);
+    .sort((a, b) => b.total - a.total || a.label.localeCompare(b.label)).slice(0, 5);
 
-  let facts =
-    `<span class="factChip">🎲 Najbardziej różnorodna: <b>${groupLabel(divG)}</b> · ${distinct[divG]} klubów</span>` +
-    `<span class="factChip">🎯 Najmniej różnorodna: <b>${groupLabel(leastG)}</b> · ${distinct[leastG]} klubów</span>` +
-    `<span class="factChip">💪 Najwyższa mediana: <b>${groupLabel(strongG)}</b> · ${Math.round(meds[strongG])} pkt</span>`;
-  if (ini.count >= 2) {
-    facts += `<span class="factChip">🔤 Najwięcej wspólnych inicjałów: <b>${groupLabel(ini.g)}</b> · ${ini.count}× „${escapeHtml(ini.letter)}" (${ini.kind})</span>`;
-  }
+  const items = [
+    `🎲 <b>Najbardziej różnorodna</b>: ${groupLabel(divG)} · ${distinct[divG]} ${clubWord(distinct[divG])}`,
+    `🎯 <b>Najmniej różnorodna</b>: ${groupLabel(leastG)} · ${distinct[leastG]} ${clubWord(distinct[leastG])}`,
+    `💪 <b>Najwyższa mediana</b>: ${groupLabel(strongG)} · ${Math.round(meds[strongG])} pkt`,
+    `🥉 <b>Najniższa mediana</b>: ${groupLabel(weakG)} · ${Math.round(meds[weakG])} pkt`,
+  ];
   if (topClubs.length) {
-    const list = topClubs.map(c => `${escapeHtml(c.label)} ×${c.total}`).join(" · ");
-    facts += `<span class="factChip">🏛️ Najliczniej: <b>${list}</b></span>`;
+    items.push(`🏛️ <b>Najliczniej reprezentowane</b>: ${topClubs.map(c => `${escapeHtml(c.label)} ×${c.total}`).join(" · ")}`);
   }
+  const facts = items.map(t => `<li>${t}</li>`).join("");
 
   const sorted = Object.values(clubs).sort((a, b) => b.total - a.total || a.label.localeCompare(b.label));
   let matrix = "";
@@ -622,7 +609,7 @@ function renderGroupStats() {
     head += `<th>Σ</th></tr>`;
     let body = "";
     for (const c of sorted) {
-      body += `<tr><th title="${escapeHtml(c.name)}">${escapeHtml(c.label)}</th>`;
+      body += `<tr><th class="clubRow"><span class="clubAbbr">${escapeHtml(c.label)}</span> <span class="clubFull">${escapeHtml(c.name)}</span></th>`;
       for (let g = 0; g < G; g++) {
         const n = c.counts[g];
         const cls = n === 0 ? "zero" : (n >= 2 ? "hot" : "");
@@ -631,10 +618,10 @@ function renderGroupStats() {
       body += `<th>${c.total}</th></tr>`;
     }
     matrix =
-      `<details class="clubMatrix"><summary>Rozkład klubów po grupach (${sorted.length} ${plural(sorted.length, ["klub", "kluby", "klubów"])})</summary>` +
+      `<details class="clubMatrix" open><summary>Rozkład klubów po grupach (${sorted.length} ${plural(sorted.length, ["klub", "kluby", "klubów"])})</summary>` +
       `<div class="matrixWrap"><table class="matrixTable"><thead>${head}</thead><tbody>${body}</tbody></table></div></details>`;
   }
-  box.innerHTML = `<div class="summaryFacts">${facts}</div>${matrix}`;
+  box.innerHTML = `<ul class="factList">${facts}</ul>${matrix}`;
   box.hidden = false;
 }
 

@@ -613,10 +613,12 @@ img.clubLogo {
   font-size: 18px;
 }
 
-/* Debiutant — brak w rankingu punktowym. */
-.rookie {
-  font-size: 0.6em;
-  vertical-align: super;
+/* Debiutant — listek jako osobny element obok nazwy, wyśrodkowany w pionie
+   (między imieniem a nazwiskiem, dzięki align-items:center na .cell). */
+.rookieDot {
+  flex: 0 0 auto;
+  font-size: 13px;
+  line-height: 1;
   margin-left: 2px;
 }
 
@@ -643,58 +645,54 @@ img.clubLogo {
 .statMed b { font-size: 20px; font-weight: 800; color: #1a2448; }
 .statAvg { font-size: 11px; color: #8a8f9c; margin-top: 1px; }
 
-/* Pasek „siły” grupy wg mediany. */
-.strengthBar {
-  display: block;
-  height: 5px;
-  max-width: 130px;
-  margin: 5px auto 0;
-  background: #e6e8ef;
-  border-radius: 3px;
-  overflow: hidden;
+/* Segmentowy miernik siły grupy (5 kresek wg mediany). */
+.meter { display: inline-flex; gap: 3px; margin-top: 6px; }
+.meter .seg {
+  width: 11px;
+  height: 7px;
+  border-radius: 2px;
+  background: #e0e3ee;
 }
-.strengthFill {
-  display: block;
-  height: 100%;
-  background: linear-gradient(90deg, #6474b5, #1a2448);
-  border-radius: 3px;
-}
+.meter .seg.on { background: #2f3f7a; }
 
-/* Podsumowanie pod tabelą: ciekawostki + macierz klubów. */
-.drawSummary { margin-top: 10px; }
-.summaryFacts { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
-.factChip {
-  background: #eef1f8;
-  border: 1px solid #dde1ee;
-  border-radius: 999px;
-  padding: 5px 13px;
-  font-size: 13px;
-  color: #1a2448;
+/* Podsumowanie pod tabelą: ciekawostki (lista) + macierz klubów. */
+.drawSummary { margin-top: 12px; }
+.factList {
+  list-style: none;
+  padding: 0;
+  margin: 6px 0 14px;
 }
-.factChip b { font-weight: 800; }
+.factList li {
+  font-size: 15px;
+  color: #1a2448;
+  padding: 5px 0;
+  border-bottom: 1px solid #eef0f5;
+}
+.factList b { font-weight: 800; }
+
 .clubMatrix > summary {
   cursor: pointer;
-  font-weight: 600;
-  font-size: 13px;
+  font-weight: 700;
+  font-size: 15px;
   color: #1a2448;
-  padding: 4px 0;
+  padding: 6px 0;
 }
 .matrixWrap { overflow-x: auto; }
-.matrixTable { border-collapse: collapse; font-size: 12px; margin-top: 6px; }
+.matrixTable { border-collapse: collapse; font-size: 14px; margin-top: 8px; }
 .matrixTable th, .matrixTable td {
   border: 1px solid #e2e4e8;
-  padding: 3px 8px;
+  padding: 6px 11px;
   text-align: center;
 }
-.matrixTable thead th { background: #1a2448; color: #fff; font-size: 11px; font-weight: 700; }
+.matrixTable thead th { background: #1a2448; color: #fff; font-size: 13px; font-weight: 700; }
 .matrixTable tbody th {
   text-align: left;
   background: #f7f8fc;
   white-space: nowrap;
-  font-weight: 700;
-  font-size: 11px;
   color: #1a2448;
 }
+.matrixTable .clubAbbr { font-weight: 800; }
+.matrixTable .clubFull { font-weight: 500; color: #6b6e76; font-size: 12px; }
 .matrixTable td.hot { background: #fde4c0; font-weight: 800; color: #8a5a00; }
 .matrixTable td.zero { color: #d0d3da; }
 
