@@ -18,8 +18,12 @@ jobs:
         run: |
           rm -rf test-preview
           mkdir -p test-preview
-          cp index.html draw.js clubs.js ranking.js style.css README.md PFM_logo.png test-preview/ || true
+          cp index.html draw.js config.js clubs.js ranking.js style.css README.md PFM_logo.png test-preview/ || true
           cp -r logos test-preview/ || true
+          # Cache-busting: doklej ?v=<sha> do skryptów i stylu, by przeglądarka
+          # zawsze pobrała świeże pliki po deployu (bez ręcznego resetu).
+          V="${GITHUB_SHA::8}"
+          sed -i "s#\"config.js\"#\"config.js?v=$V\"#; s#\"clubs.js\"#\"clubs.js?v=$V\"#; s#\"ranking.js\"#\"ranking.js?v=$V\"#; s#\"draw.js\"#\"draw.js?v=$V\"#; s#\"style.css\"#\"style.css?v=$V\"#" test-preview/index.html
           ls -la test-preview
       - name: Deploy PREVIEW to GitHub Pages (subdirectory)
         uses: peaceiris/actions-gh-pages@v4

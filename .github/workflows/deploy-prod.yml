@@ -14,6 +14,10 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+      - name: Cache-bust assets
+        run: |
+          V="${GITHUB_SHA::8}"
+          sed -i "s#\"config.js\"#\"config.js?v=$V\"#; s#\"clubs.js\"#\"clubs.js?v=$V\"#; s#\"ranking.js\"#\"ranking.js?v=$V\"#; s#\"draw.js\"#\"draw.js?v=$V\"#; s#\"style.css\"#\"style.css?v=$V\"#" index.html
       - name: Deploy PROD to GitHub Pages (root)
         uses: peaceiris/actions-gh-pages@v4
         with:
