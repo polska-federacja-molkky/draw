@@ -162,7 +162,13 @@ function clubBadge(club) {
 // ======================
 // RANKING PUNKTOWY (dane w ranking.js jako globalna stała RANKING)
 // ======================
+// Dwa niezależne przełączniki:
+//  • RANKING_PRESENT — czy jest ranking (→ znaczek 🌱 dla debiutantów). Na obu środowiskach.
+//  • SHOW_GROUP_STATS — statystyki pod grupami (mediana/średnia/ciekawostki/macierz).
+//    Sterowane z config.js (test/dev: true, produkcja: false) — jedyna różnica między branchami.
 const RANKING_DATA = (typeof RANKING !== "undefined") ? RANKING : {};
+const RANKING_PRESENT = (typeof RANKING !== "undefined");
+const SHOW_GROUP_STATS = (typeof CONFIG !== "undefined" && CONFIG.groupStats === true);
 function rankKey(s) {
   return (s || "").trim().toLowerCase()
     .replace(/ł/g, "l")
@@ -200,13 +206,15 @@ function cellMarkup(name, club) {
   const sp = trimmed.indexOf(" ");
   const first = sp > 0 ? trimmed.slice(0, sp) : trimmed;
   const last  = sp > 0 ? trimmed.slice(sp + 1) : "";
-  const info = playerPoints(trimmed);
+  // Listek 🌱 przy debiutancie — zawsze na górnym wierszu (przy imieniu),
+  // żeby przy długim/łamanym nazwisku nie wylądował na dole.
+  const info = RANKING_PRESENT ? playerPoints(trimmed) : null;
   const rookie = (info && !info.ranked)
-    ? ` <sup class="rookie" title="Debiutant — brak w rankingu">🌱</sup>` : "";
+    ? `<sup class="rookie" title="Debiutant — brak w rankingu">🌱</sup>` : "";
   const firstHtml = escapeHtml(first);
   const lastHtml  = escapeHtml(last);
   const nameBlock = last
-    ? `<span class="firstName">${firstHtml}</span><span class="lastName">${lastHtml}${rookie}</span>`
+    ? `<span class="firstName">${firstHtml}${rookie}</span><span class="lastName">${lastHtml}</span>`
     : `<span class="firstName">${firstHtml}${rookie}</span>`;
   return `<div class="cell filled"><div class="cellName">${nameBlock}</div>` +
     clubBadge(club) + `</div>`;
@@ -491,22 +499,24 @@ function buildTable(baskets, groupCount, useBaskets = true) {
 
   table.appendChild(tbody);
 
-  // Stopka ze statystykami rankingowymi per grupa (wypełniana po zakończeniu).
-  const tfoot = document.createElement("tfoot");
-  const trStat = document.createElement("tr");
-  trStat.className = "statRow";
-  trStat.hidden = true;
-  const thStat = document.createElement("th");
-  thStat.textContent = "Punkty";
-  trStat.appendChild(thStat);
-  for (let g = 0; g < groupCount; g++) {
-    const td = document.createElement("td");
-    td.id = `stat-g${g}`;
-    td.className = "statCell";
-    trStat.appendChild(td);
+  // Stopka ze statystykami rankingowymi per grupa (tylko gdy statystyki włączone).
+  if (SHOW_GROUP_STATS) {
+    const tfoot = document.createElement("tfoot");
+    const trStat = document.createElement("tr");
+    trStat.className = "statRow";
+    trStat.hidden = true;
+    const thStat = document.createElement("th");
+    thStat.textContent = "Punkty";
+    trStat.appendChild(thStat);
+    for (let g = 0; g < groupCount; g++) {
+      const td = document.createElement("td");
+      td.id = `stat-g${g}`;
+      td.className = "statCell";
+      trStat.appendChild(td);
+    }
+    tfoot.appendChild(trStat);
+    table.appendChild(tfoot);
   }
-  tfoot.appendChild(trStat);
-  table.appendChild(tfoot);
 
   wrap.innerHTML = "";
   wrap.appendChild(table);
@@ -521,6 +531,7 @@ function buildTable(baskets, groupCount, useBaskets = true) {
 //  • rozwijana macierz klub × grupa (podświetlone 2+ tego samego klubu w grupie)
 // Placeholdery („gracz N") i „X" pomijamy; brak w rankingu = 0 pkt.
 function renderGroupStats() {
+  if (!SHOW_GROUP_STATS) return;
   const row = document.querySelector(".resultTable .statRow");
   if (!row || !STATE.started) return;
   const G = STATE.groupCount;
@@ -568,11 +579,40 @@ function renderGroupStats() {
   const distinct = Array.from({ length: G }, (_, g) =>
     Object.values(clubs).filter(c => c.counts[g] > 0).length);
   const divG = distinct.indexOf(Math.max(...distinct));
+  const leastG = distinct.indexOf(Math.min(...distinct));
   const strongG = meds.indexOf(Math.max(...meds));
 
-  const facts =
+  // Najczęstsza wspólna pierwsza litera (imienia lub nazwiska) w jednej grupie.
+  let ini = { g: -1, letter: "", count: 0, kind: "" };
+  for (const [kind, idx] of [["imion", 0], ["nazwisk", 1]]) {
+    const per = Array.from({ length: G }, () => ({}));
+    for (const s of STATE.steps) {
+      const t = (s.player && s.player.name || "").trim();
+      if (!t || t === "—" || isPlaceholderLine(t) || isEmptyMarker(t)) continue;
+      const parts = t.split(/\s+/);
+      const tok = idx === 0 ? parts[0] : parts[parts.length - 1];
+      const L = (tok[0] || "").toUpperCase();
+      if (!L) continue;
+      const gm = per[s.groupIndex];
+      gm[L] = (gm[L] || 0) + 1;
+      if (gm[L] > ini.count) ini = { g: s.groupIndex, letter: L, count: gm[L], kind };
+    }
+  }
+
+  const topClubs = Object.values(clubs)
+    .sort((a, b) => b.total - a.total || a.label.localeCompare(b.label)).slice(0, 4);
+
+  let facts =
     `<span class="factChip">🎲 Najbardziej różnorodna: <b>${groupLabel(divG)}</b> · ${distinct[divG]} klubów</span>` +
+    `<span class="factChip">🎯 Najmniej różnorodna: <b>${groupLabel(leastG)}</b> · ${distinct[leastG]} klubów</span>` +
     `<span class="factChip">💪 Najwyższa mediana: <b>${groupLabel(strongG)}</b> · ${Math.round(meds[strongG])} pkt</span>`;
+  if (ini.count >= 2) {
+    facts += `<span class="factChip">🔤 Najwięcej wspólnych inicjałów: <b>${groupLabel(ini.g)}</b> · ${ini.count}× „${escapeHtml(ini.letter)}" (${ini.kind})</span>`;
+  }
+  if (topClubs.length) {
+    const list = topClubs.map(c => `${escapeHtml(c.label)} ×${c.total}`).join(" · ");
+    facts += `<span class="factChip">🏛️ Najliczniej: <b>${list}</b></span>`;
+  }
 
   const sorted = Object.values(clubs).sort((a, b) => b.total - a.total || a.label.localeCompare(b.label));
   let matrix = "";
