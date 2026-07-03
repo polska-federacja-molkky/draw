@@ -679,7 +679,6 @@ function refreshUI() {
   const btnPrimary = document.getElementById("btnPrimary");
   const btnRestart = document.getElementById("btnRestart");
   const btnReset   = document.getElementById("btnReset");
-  const btnCopy    = document.getElementById("btnCopy");
   const btnExport  = document.getElementById("btnExport");
   const setup        = document.getElementById("setup");
   const summaryText  = document.getElementById("setupSummaryText");
@@ -692,7 +691,6 @@ function refreshUI() {
     btnPrimary.disabled = false;
     if (btnRestart) btnRestart.hidden = true;
     if (btnReset)   btnReset.hidden = true;
-    if (btnCopy)    btnCopy.hidden = true;
     if (btnExport)  btnExport.hidden = true;
     setTablePlaceholder();
     setStatus("idle", "Gotowe do losowania");
@@ -702,7 +700,6 @@ function refreshUI() {
     btnPrimary.disabled = false;
     if (btnRestart) btnRestart.hidden = true;
     if (btnReset)   btnReset.hidden = false;
-    if (btnCopy)    btnCopy.hidden = false;
     if (btnExport)  btnExport.hidden = false;
     setStatus(
       "drawing",
@@ -715,8 +712,7 @@ function refreshUI() {
     btnPrimary.textContent = "Losowanie zakończone ✓";
     btnPrimary.disabled = true;
     if (btnRestart) btnRestart.hidden = false;
-    if (btnReset)   btnReset.hidden = false;
-    if (btnCopy)    btnCopy.hidden = false;
+    if (btnReset)   btnReset.hidden = true;   // po zakończeniu tożsamy z „Nowe losowanie"
     if (btnExport)  btnExport.hidden = false;
     const cnt = countRealAssigned();
     setStatus(
