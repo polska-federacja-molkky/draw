@@ -105,24 +105,165 @@ function isEmptyMarker(name) {
   return typeof name === "string" && name.trim().toLowerCase() === "x";
 }
 
-// Renderuje zawartość komórki w układzie trójwierszowym:
-// imię / nazwisko / klub. Pionowo mamy dużo miejsca, więc rozbicie nazwiska
-// na osobny wiersz pozwala na większą, czytelniejszą czcionkę.
+// ======================
+// HERBY KLUBÓW (tylko wyświetlanie — eksport/kopiowanie dalej używa skrótów)
+// ======================
+// Dane klubów (nazwy + herby) są w osobnym pliku clubs.js (ładowanym przed
+// draw.js), jako globalna stała CLUBS. Tu jest tylko logika.
+// Klucz = znormalizowany skrót: wielkie litery, Ł→L, bez diakrytyków — żeby
+// dopasować niezależnie od tego, jak klub wpisano na liście (np. "OŁA"/"OLA").
+const CLUB_DATA = (typeof CLUBS !== "undefined") ? CLUBS : {};
+
+function clubKey(s) {
+  return (s || "").trim().toUpperCase()
+    .replace(/Ł/g, "L")
+    .normalize("NFD").replace(/[̀-ͯ]/g, "");
+}
+
+// Szary herb-placeholder z akronimem klubu — dla klubów bez logotypu.
+// Zwraca element DOM (używane też z onerror <img>, gdy pliku herbu brakło).
+function makeClubPlaceholder(acr, title) {
+  const s = document.createElement("span");
+  s.className = "clubLogo clubLogo--empty";
+  s.title = title || acr || "";
+  s.setAttribute("role", "img");
+  s.setAttribute("aria-label", title || acr || "");
+  const t = document.createElement("span");
+  t.className = "clubAcr";
+  t.textContent = acr || "";
+  s.appendChild(t);
+  return s;
+}
+
+function placeholderHtml(acr, title) {
+  return `<span class="clubLogo clubLogo--empty" title="${escapeHtml(title)}"` +
+    ` role="img" aria-label="${escapeHtml(title)}">` +
+    `<span class="clubAcr">${escapeHtml(acr)}</span></span>`;
+}
+
+// Zwraca HTML odznaki klubu do komórki wyniku:
+//  • brak klubu ("-")         → nic
+//  • klub z herbem            → <img> (fallback na placeholder, gdy pliku brak)
+//  • klub bez herbu / nieznany → szara tarcza z 3-literowym akronimem
+function clubBadge(club) {
+  if (!club || club === "-") return "";
+  const raw = club.trim();
+  const acr = raw.toUpperCase();
+  const info = CLUB_DATA[clubKey(raw)];
+  const title = info ? info.name : raw;
+  if (info && info.logo) {
+    return `<img class="clubLogo" src="${escapeHtml(info.logo)}" alt="${escapeHtml(acr)}"` +
+      ` title="${escapeHtml(title)}" loading="lazy" data-acr="${escapeHtml(acr)}"` +
+      ` onerror="this.replaceWith(makeClubPlaceholder(this.dataset.acr, this.title))">`;
+  }
+  return placeholderHtml(acr, title);
+}
+
+// ======================
+// RANKING PUNKTOWY (dane w ranking.js jako globalna stała RANKING)
+// ======================
+// Dwa niezależne przełączniki:
+//  • RANKING_PRESENT — czy jest ranking (→ znaczek 🌱 dla debiutantów). Na obu środowiskach.
+//  • SHOW_GROUP_STATS — statystyki pod grupami (mediana/średnia/ciekawostki/macierz).
+//    Sterowane z config.js (test/dev: true, produkcja: false) — jedyna różnica między branchami.
+const RANKING_DATA = (typeof RANKING !== "undefined") ? RANKING : {};
+const RANKING_PRESENT = (typeof RANKING !== "undefined");
+const SHOW_GROUP_STATS = (typeof CONFIG !== "undefined" && CONFIG.groupStats === true);
+function rankKey(s) {
+  return (s || "").trim().toLowerCase()
+    .replace(/ł/g, "l")
+    .normalize("NFD").replace(/[̀-ͯ]/g, "")
+    .replace(/\s+/g, " ");
+}
+const RANKING_NORM = {};
+for (const name in RANKING_DATA) RANKING_NORM[rankKey(name)] = RANKING_DATA[name];
+
+// Zwraca {points, ranked} dla realnego zawodnika; null dla placeholderów/„X"/pustych.
+// Brak w rankingu → {points: 0, ranked: false} (liczy się jako 0, dostaje 🌱).
+function playerPoints(name) {
+  const t = (name || "").trim();
+  if (!t || t === "—" || isPlaceholderLine(t) || isEmptyMarker(t)) return null;
+  const key = rankKey(t);
+  if (key in RANKING_NORM) return { points: RANKING_NORM[key], ranked: true };
+  return { points: 0, ranked: false };
+}
+
+function median(arr) {
+  const s = [...arr].sort((a, b) => a - b);
+  const n = s.length, m = Math.floor(n / 2);
+  return n % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+}
+
+// Renderuje zawartość komórki: imię/nazwisko w bloku po lewej, herb klubu
+// po prawej stronie. Rozbicie nazwiska na osobny wiersz daje większą czcionkę,
+// a herb obok nie zabiera pionu. Debiutant (brak w rankingu) dostaje 🌱.
 function cellMarkup(name, club) {
   const isEmpty = (name === "—" && club === "—");
   if (isEmpty) {
-    return `<div class="cell empty"><span class="firstName">—</span></div>`;
+    return `<div class="cell empty"><div class="cellName"><span class="firstName">—</span></div></div>`;
   }
   const trimmed = (name || "").trim();
   const sp = trimmed.indexOf(" ");
   const first = sp > 0 ? trimmed.slice(0, sp) : trimmed;
   const last  = sp > 0 ? trimmed.slice(sp + 1) : "";
-  const clubStr = club && club !== "-" ? club : "";
-  return `<div class="cell filled">` +
-    `<span class="firstName">${escapeHtml(first)}</span>` +
-    (last ? `<span class="lastName">${escapeHtml(last)}</span>` : "") +
-    (clubStr ? `<span class="club">${escapeHtml(clubStr)}</span>` : "") +
-    `</div>`;
+  // Listek 🌱 przy debiutancie — zawsze na górnym wierszu (przy imieniu),
+  // żeby przy długim/łamanym nazwisku nie wylądował na dole.
+  const info = RANKING_PRESENT ? playerPoints(trimmed) : null;
+  const rookie = (info && !info.ranked)
+    ? `<sup class="rookie" title="Debiutant — brak w rankingu">🌱</sup>` : "";
+  const firstHtml = escapeHtml(first);
+  const lastHtml  = escapeHtml(last);
+  const nameBlock = last
+    ? `<span class="firstName">${firstHtml}${rookie}</span><span class="lastName">${lastHtml}</span>`
+    : `<span class="firstName">${firstHtml}${rookie}</span>`;
+  return `<div class="cell filled"><div class="cellName">${nameBlock}</div>` +
+    clubBadge(club) + `</div>`;
+}
+
+// Auto-dopasowanie: długie imię/nazwisko zmniejsza czcionkę, aż zmieści się
+// w jednej linii — dzięki temu każdy wpis mieści się w 2 rzędach, a krótkie
+// nazwy zostają duże. Herb po prawej zabiera szerokość, więc bez tego
+// najdłuższe nazwiska łamią się na 3 linie.
+const NAME_FONT_MAX = 18, NAME_FONT_MIN = 11;
+function fitName(span) {
+  if (!span || !span.textContent) return;
+  span.style.fontSize = "";                 // reset do domyślnych 18px
+  // Łamanie tylko na myślniku/spacji (CSS). Dopóki tekst wystaje poza szerokość
+  // komórki, zmniejszaj czcionkę: pojedyncze słowa trafiają do jednej linii,
+  // człony z myślnikiem łamią się i mieszczą bez najeżdżania na herb.
+  let fs = NAME_FONT_MAX, guard = 0;
+  while (fs > NAME_FONT_MIN && span.scrollWidth > span.clientWidth + 1 && guard < 12) {
+    fs -= 1;
+    span.style.fontSize = fs + "px";
+    guard++;
+  }
+}
+function fitCell(cell) {
+  if (!cell) return;
+  cell.querySelectorAll(".firstName, .lastName").forEach(fitName);
+}
+function fitAllCells() {
+  document.querySelectorAll(".resultTable td .cell").forEach(fitCell);
+}
+
+// ======================
+// TRYB PEŁNOEKRANOWY / PREZENTACJA (do rzutnika na sali)
+// ======================
+function toggleFullscreen() {
+  const el = document.documentElement;
+  if (!document.fullscreenElement) {
+    (el.requestFullscreen || el.webkitRequestFullscreen)?.call(el);
+  } else {
+    (document.exitFullscreen || document.webkitExitFullscreen)?.call(document);
+  }
+}
+
+function onFullscreenChange() {
+  const on = !!(document.fullscreenElement || document.webkitFullscreenElement);
+  document.body.classList.toggle("presenting", on);
+  const b = document.getElementById("btnFullscreen");
+  if (b) b.textContent = on ? "⛶ Zamknij pełny ekran" : "⛶ Pełny ekran";
+  fitAllCells();   // układ się zmienił — przelicz dopasowanie nazw
 }
 
 function parseInput(text, teamMode, useBaskets = true) {
@@ -358,8 +499,143 @@ function buildTable(baskets, groupCount, useBaskets = true) {
 
   table.appendChild(tbody);
 
+  // Stopka ze statystykami rankingowymi per grupa (tylko gdy statystyki włączone).
+  if (SHOW_GROUP_STATS) {
+    const tfoot = document.createElement("tfoot");
+    const trStat = document.createElement("tr");
+    trStat.className = "statRow";
+    trStat.hidden = true;
+    const thStat = document.createElement("th");
+    thStat.textContent = "Punkty";
+    trStat.appendChild(thStat);
+    for (let g = 0; g < groupCount; g++) {
+      const td = document.createElement("td");
+      td.id = `stat-g${g}`;
+      td.className = "statCell";
+      trStat.appendChild(td);
+    }
+    tfoot.appendChild(trStat);
+    table.appendChild(tfoot);
+  }
+
   wrap.innerHTML = "";
   wrap.appendChild(table);
+
+  const box = document.getElementById("drawSummary");
+  if (box) { box.innerHTML = ""; box.hidden = true; }
+}
+
+// Statystyki po zakończeniu losowania:
+//  • stopka pod grupami: MEDIANA (główna) + średnia + pasek „siły”
+//  • ciekawostki: najbardziej różnorodna grupa, najwyższa mediana
+//  • rozwijana macierz klub × grupa (podświetlone 2+ tego samego klubu w grupie)
+// Placeholdery („gracz N") i „X" pomijamy; brak w rankingu = 0 pkt.
+function renderGroupStats() {
+  if (!SHOW_GROUP_STATS) return;
+  const row = document.querySelector(".resultTable .statRow");
+  if (!row || !STATE.started) return;
+  const G = STATE.groupCount;
+
+  const groupPoints = Array.from({ length: G }, () => []);
+  const clubs = {};   // klucz → {label, name, counts:[G], total}
+  for (const s of STATE.steps) {
+    const nm = s.player && s.player.name;
+    const info = playerPoints(nm);
+    if (info) groupPoints[s.groupIndex].push(info.points);
+
+    const club = s.player && s.player.club;
+    if (club && club !== "-" && !isPlaceholderLine(nm || "") && !isEmptyMarker(nm || "")) {
+      const k = clubKey(club);
+      if (!clubs[k]) {
+        const ci = CLUB_DATA[k];
+        clubs[k] = { label: club.trim().toUpperCase(), name: ci ? ci.name : club.trim(),
+                     counts: Array(G).fill(0), total: 0 };
+      }
+      clubs[k].counts[s.groupIndex]++;
+      clubs[k].total++;
+    }
+  }
+
+  const meds = groupPoints.map(a => a.length ? median(a) : 0);
+  const avgs = groupPoints.map(a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0);
+  const maxMed = Math.max(1, ...meds);
+
+  // Stopka: mediana (duża) + średnia + pasek siły (mediana / maks. mediana)
+  for (let g = 0; g < G; g++) {
+    const cell = document.getElementById(`stat-g${g}`);
+    if (!cell) continue;
+    if (!groupPoints[g].length) { cell.innerHTML = ""; continue; }
+    const pct = Math.round(meds[g] / maxMed * 100);
+    cell.innerHTML =
+      `<span class="statMed">mediana <b>${Math.round(meds[g])}</b></span>` +
+      `<span class="statAvg">śr. ${Math.round(avgs[g])} pkt</span>` +
+      `<span class="strengthBar" title="Siła grupy wg mediany"><span class="strengthFill" style="width:${pct}%"></span></span>`;
+  }
+  row.hidden = false;
+
+  // Ciekawostki + macierz klubów pod tabelą
+  const box = document.getElementById("drawSummary");
+  if (!box) return;
+  const distinct = Array.from({ length: G }, (_, g) =>
+    Object.values(clubs).filter(c => c.counts[g] > 0).length);
+  const divG = distinct.indexOf(Math.max(...distinct));
+  const leastG = distinct.indexOf(Math.min(...distinct));
+  const strongG = meds.indexOf(Math.max(...meds));
+
+  // Najczęstsza wspólna pierwsza litera (imienia lub nazwiska) w jednej grupie.
+  let ini = { g: -1, letter: "", count: 0, kind: "" };
+  for (const [kind, idx] of [["imion", 0], ["nazwisk", 1]]) {
+    const per = Array.from({ length: G }, () => ({}));
+    for (const s of STATE.steps) {
+      const t = (s.player && s.player.name || "").trim();
+      if (!t || t === "—" || isPlaceholderLine(t) || isEmptyMarker(t)) continue;
+      const parts = t.split(/\s+/);
+      const tok = idx === 0 ? parts[0] : parts[parts.length - 1];
+      const L = (tok[0] || "").toUpperCase();
+      if (!L) continue;
+      const gm = per[s.groupIndex];
+      gm[L] = (gm[L] || 0) + 1;
+      if (gm[L] > ini.count) ini = { g: s.groupIndex, letter: L, count: gm[L], kind };
+    }
+  }
+
+  const topClubs = Object.values(clubs)
+    .sort((a, b) => b.total - a.total || a.label.localeCompare(b.label)).slice(0, 4);
+
+  let facts =
+    `<span class="factChip">🎲 Najbardziej różnorodna: <b>${groupLabel(divG)}</b> · ${distinct[divG]} klubów</span>` +
+    `<span class="factChip">🎯 Najmniej różnorodna: <b>${groupLabel(leastG)}</b> · ${distinct[leastG]} klubów</span>` +
+    `<span class="factChip">💪 Najwyższa mediana: <b>${groupLabel(strongG)}</b> · ${Math.round(meds[strongG])} pkt</span>`;
+  if (ini.count >= 2) {
+    facts += `<span class="factChip">🔤 Najwięcej wspólnych inicjałów: <b>${groupLabel(ini.g)}</b> · ${ini.count}× „${escapeHtml(ini.letter)}" (${ini.kind})</span>`;
+  }
+  if (topClubs.length) {
+    const list = topClubs.map(c => `${escapeHtml(c.label)} ×${c.total}`).join(" · ");
+    facts += `<span class="factChip">🏛️ Najliczniej: <b>${list}</b></span>`;
+  }
+
+  const sorted = Object.values(clubs).sort((a, b) => b.total - a.total || a.label.localeCompare(b.label));
+  let matrix = "";
+  if (sorted.length) {
+    let head = `<tr><th>Klub</th>`;
+    for (let g = 0; g < G; g++) head += `<th>${escapeHtml(excelLetters(g))}</th>`;
+    head += `<th>Σ</th></tr>`;
+    let body = "";
+    for (const c of sorted) {
+      body += `<tr><th title="${escapeHtml(c.name)}">${escapeHtml(c.label)}</th>`;
+      for (let g = 0; g < G; g++) {
+        const n = c.counts[g];
+        const cls = n === 0 ? "zero" : (n >= 2 ? "hot" : "");
+        body += `<td class="${cls}">${n || ""}</td>`;
+      }
+      body += `<th>${c.total}</th></tr>`;
+    }
+    matrix =
+      `<details class="clubMatrix"><summary>Rozkład klubów po grupach (${sorted.length} ${plural(sorted.length, ["klub", "kluby", "klubów"])})</summary>` +
+      `<div class="matrixWrap"><table class="matrixTable"><thead>${head}</thead><tbody>${body}</tbody></table></div></details>`;
+  }
+  box.innerHTML = `<div class="summaryFacts">${facts}</div>${matrix}`;
+  box.hidden = false;
 }
 
 // ======================
@@ -460,6 +736,7 @@ function refreshUI() {
       "done",
       `Losowanie zakończone: ${cnt} ${plural(cnt, unitForms)} w ${STATE.groupCount} ${plural(STATE.groupCount, ["grupie", "grupach", "grupach"])}`
     );
+    renderGroupStats();
   }
 
   // Panel danych zwija się przy przejściu do losowania (raz, by nie blokować edycji)
@@ -640,6 +917,11 @@ function nextStep() {
 
   if (cell) {
     cell.innerHTML = cellMarkup(s.player.name, s.player.club);
+    fitCell(cell.querySelector(".cell"));
+    // Żywsze odsłanianie: podświetl tylko tę, świeżo wylosowaną komórkę.
+    document.querySelectorAll(".resultTable td.justDrawn").forEach(t => t.classList.remove("justDrawn"));
+    void cell.offsetWidth;            // restart animacji
+    cell.classList.add("justDrawn");
   }
 
   addLog(`${s.basketLabel} → ${s.groupLabel}: ${s.player.name}${s.player.club ? " (" + s.player.club + ")" : ""}`);
@@ -1023,6 +1305,7 @@ function loadState() {
     const cell = document.getElementById(`cell-b${s.basketIndex}-g${s.groupIndex}`);
     if (!cell) continue;
     cell.innerHTML = cellMarkup(s.player.name, s.player.club);
+    fitCell(cell.querySelector(".cell"));
   }
 
   const logEl = document.getElementById("log");
@@ -1050,4 +1333,14 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("input")?.addEventListener("input", renderValidation);
   document.getElementById("groupCount")?.addEventListener("input", renderValidation);
   updateModeUI();
+
+  // Zmiana szerokości okna zmienia szerokość kolumn → przelicz dopasowanie nazw.
+  let fitTimer = null;
+  window.addEventListener("resize", () => {
+    clearTimeout(fitTimer);
+    fitTimer = setTimeout(fitAllCells, 150);
+  });
+
+  document.addEventListener("fullscreenchange", onFullscreenChange);
+  document.addEventListener("webkitfullscreenchange", onFullscreenChange);
 });
