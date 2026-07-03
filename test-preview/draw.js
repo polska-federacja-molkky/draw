@@ -591,13 +591,13 @@ function renderGroupStats() {
     .sort((a, b) => b.total - a.total || a.label.localeCompare(b.label)).slice(0, 5);
 
   const items = [
-    `🎲 <b>Najbardziej różnorodna</b>: ${groupLabel(divG)} · ${distinct[divG]} ${clubWord(distinct[divG])}`,
-    `🎯 <b>Najmniej różnorodna</b>: ${groupLabel(leastG)} · ${distinct[leastG]} ${clubWord(distinct[leastG])}`,
-    `💪 <b>Najwyższa mediana</b>: ${groupLabel(strongG)} · ${Math.round(meds[strongG])} pkt`,
-    `🥉 <b>Najniższa mediana</b>: ${groupLabel(weakG)} · ${Math.round(meds[weakG])} pkt`,
+    `<b>Najbardziej różnorodna</b>: ${groupLabel(divG)} · ${distinct[divG]} ${clubWord(distinct[divG])}`,
+    `<b>Najmniej różnorodna</b>: ${groupLabel(leastG)} · ${distinct[leastG]} ${clubWord(distinct[leastG])}`,
+    `<b>Najwyższa mediana</b>: ${groupLabel(strongG)} · ${Math.round(meds[strongG])} pkt`,
+    `<b>Najniższa mediana</b>: ${groupLabel(weakG)} · ${Math.round(meds[weakG])} pkt`,
   ];
   if (topClubs.length) {
-    items.push(`🏛️ <b>Najliczniej reprezentowane</b>: ${topClubs.map(c => `${escapeHtml(c.label)} ×${c.total}`).join(" · ")}`);
+    items.push(`<b>Najliczniej reprezentowane</b>: ${topClubs.map(c => `${escapeHtml(c.label)} ×${c.total}`).join(" · ")}`);
   }
   const facts = items.map(t => `<li>${t}</li>`).join("");
 
