@@ -272,7 +272,24 @@ function onFullscreenChange() {
 // Gdy nie da się jednoznacznie przypisać do koszyków (remis punktowy), zostawia
 // się puste wiersze w koszykach głównych, a osoby-konflikty w bloku „KOSZYK a/b/c"
 // (dalej w prawo). Ta funkcja rozlosowuje pulę w puste miejsca referowanych koszyków.
-function bgParseGrid(text) { return text.split(/\r?\n/).map(l => l.split("\t")); }
+// Parser TSV świadomy cudzysłowów — komórka w "..." może zawierać taby i nowe
+// linie (np. wielolinijkowa instrukcja „WKLEJANIE…"), więc nie rozbijamy jej na wiersze.
+function bgParseGrid(text) {
+  const rows = []; let row = [], field = "", q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) {
+      if (c === '"') { if (text[i + 1] === '"') { field += '"'; i++; } else q = false; }
+      else field += c;
+    } else if (c === '"') { q = true; }
+    else if (c === '\t') { row.push(field); field = ""; }
+    else if (c === '\r') { /* ignoruj */ }
+    else if (c === '\n') { row.push(field); rows.push(row); row = []; field = ""; }
+    else field += c;
+  }
+  row.push(field); rows.push(row);
+  return rows;
+}
 function bgStripTrailingBlank(grid) {
   let e = grid.length;
   while (e > 0 && (grid[e - 1] || []).every(c => !(c || "").trim())) e--;
@@ -297,14 +314,12 @@ function bgEndRow(grid, blk, all) {
   return e;
 }
 
-// Zwraca null, jeśli nie ma bloków konfliktowych; inaczej {text, assignment, warnings}.
-function resolveBasketAssignment(text) {
+// Wspólny odczyt układu: koszyki główne (ze slotami/pustymi) + pule konfliktowe.
+function bgParseLayout(text) {
   const grid = bgStripTrailingBlank(bgParseGrid(text));
   const blocks = bgFindBlocks(grid);
   const confs = blocks.filter(b => b.conflict);
-  if (!confs.length) return null;
   const mains = blocks.filter(b => !b.conflict);
-
   const mainByNum = {};
   for (const mb of mains) {
     const end = bgEndRow(grid, mb, blocks);
@@ -316,36 +331,55 @@ function resolveBasketAssignment(text) {
     }
     mainByNum[mb.baskets[0]] = { num: mb.baskets[0], slots };
   }
-
-  const rnd = createSeededRandom(`${new Date().toISOString()}-${cryptoRandomInt()}`);
-  const warnings = [], assignment = [];
+  const pools = [];
   for (const cb of confs) {
     const end = bgEndRow(grid, cb, blocks);
-    const pool = [];
+    const players = [];
     for (let r = cb.row + 1; r < end; r++) {
       const name = (grid[r]?.[cb.col] || "").trim();
       const club = (grid[r]?.[cb.col + 1] || "").trim();
-      if (name && !bgIsKoszyk(name)) pool.push({ name, club: club || "-" });
+      if (name && !bgIsKoszyk(name)) players.push({ name, club: club || "-" });
     }
-    shuffle(pool, rnd);
-    const targets = cb.baskets.filter(n => mainByNum[n]);
-    const emptyPer = targets.map(n => mainByNum[n].slots.filter(s => s.empty).length);
-    const totalEmpty = emptyPer.reduce((a, b) => a + b, 0);
-    if (pool.length !== totalEmpty) {
-      warnings.push(`Blok „${cb.label}": ${pool.length} os. vs ${totalEmpty} pustych miejsc (${targets.map((n, i) => `K${n}:${emptyPer[i]}`).join(", ")}).`);
-    }
-    let i = 0;
-    targets.forEach((n, bi) => {
-      let filled = 0;
-      for (const s of mainByNum[n].slots) {
-        if (s.empty && filled < emptyPer[bi] && i < pool.length) {
-          const p = pool[i++]; s.name = p.name; s.club = p.club; s.empty = false; s.conflict = true;
-          assignment.push({ basket: n, name: p.name, club: p.club });
-          filled++;
-        }
-      }
-    });
+    pools.push({ label: cb.label, baskets: cb.baskets.filter(n => mainByNum[n]), players });
   }
+  return { mainByNum, pools, confs };
+}
+
+// Zwraca null, jeśli nie ma bloków konfliktowych; inaczej {text, steps, warnings}.
+// Globalny przydział z ograniczeniami: koszyki obsługiwane przez najmniej bloków
+// (np. tylko-jeden) wypełniamy pierwsze, wspólne koszyki z reszty puli.
+function resolveBasketAssignment(text) {
+  const { mainByNum, pools } = bgParseLayout(text);
+  if (!pools.length) return null;
+
+  const rnd = createSeededRandom(`${new Date().toISOString()}-${cryptoRandomInt()}`);
+  const emptyOf = n => (mainByNum[n]?.slots || []).filter(s => s.empty).length;
+  const allBaskets = [...new Set(pools.flatMap(p => p.baskets))];
+  const poolsFor = n => pools.filter(p => p.baskets.includes(n));
+  const order = allBaskets.slice().sort((a, b) => poolsFor(a).length - poolsFor(b).length || a - b);
+
+  const steps = [], warnings = [];
+  for (const n of order) {
+    const need = emptyOf(n);
+    let cand = [];
+    for (const p of pools) if (p.baskets.includes(n)) cand.push(...p.players);
+    shuffle(cand, rnd);
+    const chosen = cand.slice(0, need);
+    for (const pl of chosen) {
+      const p = pools.find(pp => pp.players.includes(pl));
+      if (p) p.players.splice(p.players.indexOf(pl), 1);
+    }
+    let fi = 0;
+    for (const s of mainByNum[n].slots) {
+      if (s.empty && fi < chosen.length) {
+        const pl = chosen[fi++]; s.name = pl.name; s.club = pl.club; s.empty = false; s.conflict = true;
+        steps.push({ name: pl.name, club: pl.club, basket: n });
+      }
+    }
+    if (chosen.length < need) warnings.push(`Koszyk ${n}: ${need - chosen.length} pustych miejsc bez kandydata.`);
+  }
+  const leftover = pools.reduce((a, p) => a + p.players.length, 0);
+  if (leftover) warnings.push(`${leftover} os. z bloków konfliktowych bez wolnego miejsca — sprawdź układ.`);
 
   const nums = Object.keys(mainByNum).map(Number).sort((a, b) => a - b);
   let out = "";
@@ -353,7 +387,7 @@ function resolveBasketAssignment(text) {
     out += `KOSZYK ${n}\n`;
     for (const s of mainByNum[n].slots) if (!s.empty) out += `${s.name}\t${s.club}\n`;
   }
-  return { text: out.replace(/\n+$/, "") + "\n", assignment, warnings };
+  return { text: out.replace(/\n+$/, "") + "\n", steps, warnings };
 }
 
 // Wynik ostatniego przydziału do koszyków — trafia do eksportu XLSX (osobna zakładka).
@@ -434,11 +468,40 @@ function plural(n, forms) {
   return forms[2];
 }
 
+// Walidacja w trybie „najpierw przydział do koszyków" — surowe, wielokolumnowe
+// wklejenie z blokami konfliktowymi. Liczymy globalnie, nie krzyczymy „koszyk za duży".
+function validatePreAssign(text, groupCount) {
+  const result = { empty: !text, counts: null, warnings: [], errors: [] };
+  if (!text) return result;
+  const { mainByNum, pools } = bgParseLayout(text);
+  let mainReal = 0, empties = 0;
+  for (const n of Object.keys(mainByNum)) {
+    for (const s of mainByNum[n].slots) {
+      if (s.empty) empties++;
+      else if (!isPlaceholderLine(s.name) && !isEmptyMarker(s.name)) mainReal++;
+    }
+  }
+  const pool = pools.reduce((a, p) => a + p.players.length, 0);
+  const total = mainReal + pool;
+  const parts = [`${total} ${plural(total, ["uczestnik", "uczestnicy", "uczestników"])}`];
+  if (pools.length) parts.push(`${pool} do rozlosowania w ${pools.length} ${plural(pools.length, ["bloku", "blokach", "blokach"])}`);
+  result.counts = parts.join(" · ");
+  if (!groupCount || groupCount < 2) result.errors.push("Podaj liczbę grup (min. 2).");
+  if (!pools.length) result.warnings.push("Zaznaczono przydział do koszyków, ale nie ma bloków KOSZYK a/b/c — odznacz, by losować grupy.");
+  else if (pool !== empties) result.warnings.push(`Do rozlosowania: ${pool} os., pustych miejsc: ${empties}. Powinno być równo — sprawdź układ.`);
+  return result;
+}
+
 function validateInput() {
   const text = document.getElementById("input")?.value.trim() ?? "";
   const teamMode = document.getElementById("modeTeam")?.checked === true;
   const useBaskets = basketsEnabled();
   const groupCount = parseInt(document.getElementById("groupCount")?.value, 10);
+
+  // Tryb pre-losowania przydziału do koszyków — inna, świadoma konfliktów walidacja.
+  if (document.getElementById("preAssignBaskets")?.checked === true) {
+    return validatePreAssign(text, groupCount);
+  }
 
   const result = { empty: !text, counts: null, warnings: [], errors: [] };
   if (!text) return result;
@@ -903,10 +966,10 @@ function startDraw() {
       return;
     }
     inputEl.value = res.text;
-    lastBasketAssignment = { assignment: res.assignment, at: new Date().toISOString() };
+    lastBasketAssignment = { steps: res.steps, at: new Date().toISOString() };
     renderValidation();
     const warn = res.warnings.length ? " ⚠ " + res.warnings.join(" ") : "";
-    setStatus("idle", `Przydział do koszyków wylosowany (${res.assignment.length} os.). Kliknij „Rozpocznij losowanie", aby losować grupy.${warn}`);
+    setStatus("idle", `Przydział do koszyków wylosowany (${res.steps.length} os.). Kliknij „Rozpocznij losowanie", aby losować grupy.${warn}`);
     return;
   }
 
@@ -1429,6 +1492,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
   document.getElementById("input")?.addEventListener("input", renderValidation);
   document.getElementById("groupCount")?.addEventListener("input", renderValidation);
+  document.getElementById("preAssignBaskets")?.addEventListener("change", renderValidation);
   updateModeUI();
 
   // Zmiana szerokości okna zmienia szerokość kolumn → przelicz dopasowanie nazw.
