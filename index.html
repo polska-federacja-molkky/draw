@@ -96,9 +96,19 @@
       </div>
 
       <div class="setupCol setupInput">
-        <label id="inputLabel">Koszyki (do wklejenia z Excela):</label>
-        <textarea id="input" rows="12"></textarea>
+        <div class="inputRow">
+          <div class="inputCol">
+            <label id="inputLabel">Koszyki (do wklejenia z Excela):</label>
+            <textarea id="input" rows="12"></textarea>
+          </div>
+          <div class="inputCol" id="conflictCol" hidden>
+            <label for="conflictInput">Koszyki konfliktowe (do rozlosowania):</label>
+            <textarea id="conflictInput" rows="12" placeholder="KOSZYK 5/6/7&#10;Piotr Pasik&#9;SAO&#10;Robert Baścik&#9;-&#10;…&#10;&#10;KOSZYK 7/8&#10;Filip Kołaczkowski&#9;SAO&#10;…"></textarea>
+            <p class="flatHint">W głównym oknie zostaw puste wiersze w koszykach — tyle, ile osób ma tam trafić z bloków.</p>
+          </div>
+        </div>
         <p id="flatHint" class="flatHint" hidden>Wskazówka: wklej samych zawodników. Liczba rund i placeholderów wynika z podziału graczy na grupy — brakujące miejsca są automatycznie uzupełniane wpisami „Gracz N” w losowych grupach (maks. 1 na grupę).</p>
+        <div id="basketAssignPanel" class="basketAssignPanel" hidden></div>
         <div id="validationPanel" class="validationPanel" aria-live="polite" hidden></div>
       </div>
 
