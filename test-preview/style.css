@@ -790,3 +790,11 @@ body.presenting .tableSection h2 { margin: 2px 0 6px; }
 .bapTitle { font-weight: 800; color: #1a2448; margin-bottom: 4px; }
 .bapRow b { color: #1a2448; }
 .bapClub { color: #6b6e76; font-size: 11px; }
+
+/* Fix: atrybut hidden przegrywał z display:flex na .inputCol. */
+.inputCol[hidden] { display: none; }
+
+/* Wizualizacja losowania przydziału do koszyków (klik po kliku). */
+.basketViz td .cell.preExist { opacity: .45; }
+.basketViz td.vizNA { background: #f4f5f8; }
+.basketViz thead th { font-size: 13px; }
