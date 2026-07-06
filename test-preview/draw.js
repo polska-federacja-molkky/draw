@@ -269,87 +269,75 @@ function onFullscreenChange() {
 // ======================
 // PRZYDZIAŁ DO KOSZYKÓW (pre-losowanie przy konfliktach punktowych)
 // ======================
-// Gdy nie da się jednoznacznie przypisać do koszyków (remis punktowy), zostawia
-// się puste wiersze w koszykach głównych, a osoby-konflikty w bloku „KOSZYK a/b/c"
-// (dalej w prawo). Ta funkcja rozlosowuje pulę w puste miejsca referowanych koszyków.
-// Parser TSV świadomy cudzysłowów — komórka w "..." może zawierać taby i nowe
-// linie (np. wielolinijkowa instrukcja „WKLEJANIE…"), więc nie rozbijamy jej na wiersze.
-function bgParseGrid(text) {
-  const rows = []; let row = [], field = "", q = false;
-  for (let i = 0; i < text.length; i++) {
-    const c = text[i];
-    if (q) {
-      if (c === '"') { if (text[i + 1] === '"') { field += '"'; i++; } else q = false; }
-      else field += c;
-    } else if (c === '"') { q = true; }
-    else if (c === '\t') { row.push(field); field = ""; }
-    else if (c === '\r') { /* ignoruj */ }
-    else if (c === '\n') { row.push(field); rows.push(row); row = []; field = ""; }
-    else field += c;
+// Gdy nie da się jednoznacznie przypisać do koszyków (remis punktowy):
+//  • główne okno — tradycyjne dwie kolumny (KOSZYK N + gracz/klub), a PUSTE
+//    WIERSZE w koszyku to miejsca do obsadzenia,
+//  • drugie okno (pojawia się po zaznaczeniu checkboxa) — bloki „KOSZYK a/b/c"
+//    z pulą osób do rozlosowania między wskazane koszyki.
+function bgLine(line) {
+  // "Nazwa\tKLUB" (Excel) lub "Nazwa  KLUB" (2+ spacje); bez klubu → "-"
+  const t = line.replace(/\t+$/, "");
+  if (t.includes("\t")) {
+    const p = t.split(/\t+/).map(x => x.trim());
+    return { name: p[0] || "", club: p[1] || "-" };
   }
-  row.push(field); rows.push(row);
-  return rows;
+  const p = t.trim().split(/\s{2,}/);
+  if (p.length >= 2) return { name: p[0].trim(), club: p[1].trim() || "-" };
+  return { name: t.trim(), club: "-" };
 }
-function bgStripTrailingBlank(grid) {
-  let e = grid.length;
-  while (e > 0 && (grid[e - 1] || []).every(c => !(c || "").trim())) e--;
-  return grid.slice(0, e);
-}
-function bgIsKoszyk(c) { return /^KOSZYK\s+[\d/]+$/i.test((c || "").trim()); }
-function bgNums(c) { return ((c || "").match(/\d+/g) || []).map(Number); }
-function bgFindBlocks(grid) {
-  const b = [];
-  for (let r = 0; r < grid.length; r++) {
-    const row = grid[r] || [];
-    for (let c = 0; c < row.length; c++) {
-      const cell = (row[c] || "").trim();
-      if (bgIsKoszyk(cell)) { const n = bgNums(cell); b.push({ row: r, col: c, label: cell, baskets: n, conflict: n.length > 1 }); }
+function bgHeaderNums(line) { return (line.match(/\d+/g) || []).map(Number); }
+
+// Główne okno → koszyki ze slotami (puste wiersze = puste miejsca).
+function bgParseMainSlots(text) {
+  const lines = text.replace(/[\s﻿]+$/, "").split(/\r?\n/);
+  const mainByNum = {}; let cur = null;
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (/^KOSZYK\b/i.test(line)) {
+      const n = bgHeaderNums(line)[0];
+      cur = mainByNum[n] = { num: n, slots: [] };
+      continue;
     }
+    if (!cur) continue;                    // śmieci przed pierwszym nagłówkiem
+    if (!line) { cur.slots.push({ empty: true }); continue; }
+    const p = bgLine(raw);
+    cur.slots.push({ name: p.name, club: p.club });
   }
-  return b;
-}
-function bgEndRow(grid, blk, all) {
-  let e = grid.length;
-  for (const o of all) if (o.col === blk.col && o.row > blk.row && o.row < e) e = o.row;
-  return e;
+  // utnij puste sloty na samym końcu ostatniego koszyka (kosmetyka wklejki)
+  const nums = Object.keys(mainByNum).map(Number);
+  if (nums.length) {
+    const last = mainByNum[Math.max(...nums)];
+    while (last.slots.length && last.slots[last.slots.length - 1].empty) last.slots.pop();
+  }
+  return mainByNum;
 }
 
-// Wspólny odczyt układu: koszyki główne (ze slotami/pustymi) + pule konfliktowe.
-function bgParseLayout(text) {
-  const grid = bgStripTrailingBlank(bgParseGrid(text));
-  const blocks = bgFindBlocks(grid);
-  const confs = blocks.filter(b => b.conflict);
-  const mains = blocks.filter(b => !b.conflict);
-  const mainByNum = {};
-  for (const mb of mains) {
-    const end = bgEndRow(grid, mb, blocks);
-    const slots = [];
-    for (let r = mb.row + 1; r < end; r++) {
-      const name = (grid[r]?.[mb.col] || "").trim();
-      const club = (grid[r]?.[mb.col + 1] || "").trim();
-      slots.push(name ? { name, club: club || "-" } : { empty: true });
+// Drugie okno → pule konfliktowe [{label, baskets, players}]; puste wiersze pomijane.
+function bgParseConflictPools(text, mainByNum) {
+  const pools = []; let cur = null;
+  for (const raw of (text || "").split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line) continue;
+    if (/^KOSZYK\b/i.test(line)) {
+      const nums = bgHeaderNums(line);
+      cur = { label: line, baskets: nums, players: [] };
+      pools.push(cur);
+      continue;
     }
-    mainByNum[mb.baskets[0]] = { num: mb.baskets[0], slots };
+    if (!cur) continue;
+    const p = bgLine(raw);
+    if (p.name) cur.players.push({ name: p.name, club: p.club });
   }
-  const pools = [];
-  for (const cb of confs) {
-    const end = bgEndRow(grid, cb, blocks);
-    const players = [];
-    for (let r = cb.row + 1; r < end; r++) {
-      const name = (grid[r]?.[cb.col] || "").trim();
-      const club = (grid[r]?.[cb.col + 1] || "").trim();
-      if (name && !bgIsKoszyk(name)) players.push({ name, club: club || "-" });
-    }
-    pools.push({ label: cb.label, baskets: cb.baskets.filter(n => mainByNum[n]), players });
-  }
-  return { mainByNum, pools, confs };
+  if (mainByNum) for (const p of pools) p.baskets = p.baskets.filter(n => mainByNum[n]);
+  return pools.filter(p => p.players.length || p.baskets.length);
 }
 
-// Zwraca null, jeśli nie ma bloków konfliktowych; inaczej {text, steps, warnings}.
+// Zwraca null, jeśli brak puli; inaczej {text, steps, warnings}.
 // Globalny przydział z ograniczeniami: koszyki obsługiwane przez najmniej bloków
 // (np. tylko-jeden) wypełniamy pierwsze, wspólne koszyki z reszty puli.
-function resolveBasketAssignment(text) {
-  const { mainByNum, pools } = bgParseLayout(text);
+function resolveBasketAssignment(mainText, conflictText) {
+  const mainByNum = bgParseMainSlots(mainText);
+  const pools = bgParseConflictPools(conflictText, mainByNum);
   if (!pools.length) return null;
 
   const rnd = createSeededRandom(`${new Date().toISOString()}-${cryptoRandomInt()}`);
@@ -392,6 +380,31 @@ function resolveBasketAssignment(text) {
 
 // Wynik ostatniego przydziału do koszyków — trafia do eksportu XLSX (osobna zakładka).
 let lastBasketAssignment = null;
+
+// Pokaż/schowaj drugie okno (koszyki konfliktowe) zależnie od checkboxa.
+function updateConflictUI() {
+  const on = document.getElementById("preAssignBaskets")?.checked === true;
+  const col = document.getElementById("conflictCol");
+  if (col) col.hidden = !on;
+}
+
+// Widoczny wynik pierwszego losowania (przydział do koszyków), grupowany per koszyk.
+function renderBasketAssignPanel() {
+  const panel = document.getElementById("basketAssignPanel");
+  if (!panel) return;
+  if (!lastBasketAssignment || !lastBasketAssignment.steps.length) {
+    panel.hidden = true; panel.innerHTML = ""; return;
+  }
+  const byBasket = {};
+  for (const s of lastBasketAssignment.steps) (byBasket[s.basket] ||= []).push(s);
+  let html = `<div class="bapTitle">Wynik losowania przydziału do koszyków (${lastBasketAssignment.steps.length} os.)</div>`;
+  for (const n of Object.keys(byBasket).map(Number).sort((a, b) => a - b)) {
+    const who = byBasket[n].map(s => `${escapeHtml(s.name)}${s.club && s.club !== "-" ? ` <span class="bapClub">${escapeHtml(s.club)}</span>` : ""}`).join(", ");
+    html += `<div class="bapRow"><b>Koszyk ${n}</b> ← ${who}</div>`;
+  }
+  panel.innerHTML = html;
+  panel.hidden = false;
+}
 
 function parseInput(text, teamMode, useBaskets = true) {
   const lines = text.split(/\r?\n/);
@@ -468,27 +481,41 @@ function plural(n, forms) {
   return forms[2];
 }
 
-// Walidacja w trybie „najpierw przydział do koszyków" — surowe, wielokolumnowe
-// wklejenie z blokami konfliktowymi. Liczymy globalnie, nie krzyczymy „koszyk za duży".
-function validatePreAssign(text, groupCount) {
-  const result = { empty: !text, counts: null, warnings: [], errors: [] };
-  if (!text) return result;
-  const { mainByNum, pools } = bgParseLayout(text);
+// Walidacja w trybie „najpierw przydział do koszyków": główne okno z pustymi
+// wierszami + drugie okno z blokami. Initial check: pula musi się zgadzać
+// z liczbą pustych miejsc (błąd blokujący, żeby nie rozlosować źle).
+function validatePreAssign(mainText, conflictText, groupCount) {
+  const result = { empty: !mainText, counts: null, warnings: [], errors: [] };
+  if (!mainText) return result;
+  const mainByNum = bgParseMainSlots(mainText);
+  const pools = bgParseConflictPools(conflictText, mainByNum);
   let mainReal = 0, empties = 0;
-  for (const n of Object.keys(mainByNum)) {
+  const emptyPer = [];
+  for (const n of Object.keys(mainByNum).map(Number).sort((a, b) => a - b)) {
+    let e = 0;
     for (const s of mainByNum[n].slots) {
-      if (s.empty) empties++;
+      if (s.empty) { empties++; e++; }
       else if (!isPlaceholderLine(s.name) && !isEmptyMarker(s.name)) mainReal++;
     }
+    if (e) emptyPer.push(`K${n}:${e}`);
   }
   const pool = pools.reduce((a, p) => a + p.players.length, 0);
   const total = mainReal + pool;
   const parts = [`${total} ${plural(total, ["uczestnik", "uczestnicy", "uczestników"])}`];
   if (pools.length) parts.push(`${pool} do rozlosowania w ${pools.length} ${plural(pools.length, ["bloku", "blokach", "blokach"])}`);
+  if (empties) parts.push(`${empties} pustych miejsc (${emptyPer.join(", ")})`);
   result.counts = parts.join(" · ");
   if (!groupCount || groupCount < 2) result.errors.push("Podaj liczbę grup (min. 2).");
-  if (!pools.length) result.warnings.push("Zaznaczono przydział do koszyków, ale nie ma bloków KOSZYK a/b/c — odznacz, by losować grupy.");
-  else if (pool !== empties) result.warnings.push(`Do rozlosowania: ${pool} os., pustych miejsc: ${empties}. Powinno być równo — sprawdź układ.`);
+  if (!pools.length) {
+    result.warnings.push("Wklej bloki KOSZYK a/b/c w drugie okno — albo odznacz checkbox, by losować grupy.");
+  } else if (pool !== empties) {
+    result.errors.push(`Nie zgadza się: ${pool} os. do rozlosowania vs ${empties} pustych miejsc. Wyrównaj przed losowaniem.`);
+  }
+  // koszyki wskazane w blokach, których nie ma w głównym oknie
+  for (const p of pools) {
+    const missing = bgHeaderNums(p.label).filter(n => !mainByNum[n]);
+    if (missing.length) result.warnings.push(`Blok „${p.label}" wskazuje koszyki spoza głównego okna: ${missing.join(", ")}.`);
+  }
   return result;
 }
 
@@ -500,7 +527,8 @@ function validateInput() {
 
   // Tryb pre-losowania przydziału do koszyków — inna, świadoma konfliktów walidacja.
   if (document.getElementById("preAssignBaskets")?.checked === true) {
-    return validatePreAssign(text, groupCount);
+    const conflictText = document.getElementById("conflictInput")?.value ?? "";
+    return validatePreAssign(text, conflictText, groupCount);
   }
 
   const result = { empty: !text, counts: null, warnings: [], errors: [] };
@@ -923,6 +951,7 @@ function newDraw() {
   const log = document.getElementById("log");
   if (log) log.innerHTML = "";
   lastBasketAssignment = null;
+  renderBasketAssignPanel();
   localStorage.removeItem(STORAGE_KEY);
   refreshUI();
   document.getElementById("input")?.focus();
@@ -959,14 +988,25 @@ function startDraw() {
   const preAssign = document.getElementById("preAssignBaskets");
   if (preAssign && preAssign.checked && drawPhase() === "idle") {
     const inputEl = document.getElementById("input");
-    const res = resolveBasketAssignment(inputEl.value);
-    preAssign.checked = false;
+    const conflictEl = document.getElementById("conflictInput");
+
+    // Initial check (błędy blokują, np. pula ≠ puste miejsca)
+    const pv = renderValidation();
+    if (pv && pv.errors.length) {
+      document.getElementById("validationPanel")?.scrollIntoView({ block: "nearest" });
+      return;
+    }
+
+    const res = resolveBasketAssignment(inputEl.value, conflictEl?.value || "");
     if (!res) {
-      setStatus("idle", "Brak bloków konfliktowych (KOSZYK a/b/c) — kliknij ponownie, aby losować grupy.");
+      setStatus("idle", "Wklej bloki KOSZYK a/b/c w drugie okno — albo odznacz checkbox, by losować grupy.");
       return;
     }
     inputEl.value = res.text;
     lastBasketAssignment = { steps: res.steps, at: new Date().toISOString() };
+    preAssign.checked = false;
+    updateConflictUI();                 // chowa drugie okno
+    renderBasketAssignPanel();          // widoczny wynik pierwszego losowania
     renderValidation();
     const warn = res.warnings.length ? " ⚠ " + res.warnings.join(" ") : "";
     setStatus("idle", `Przydział do koszyków wylosowany (${res.steps.length} os.). Kliknij „Rozpocznij losowanie", aby losować grupy.${warn}`);
@@ -1204,29 +1244,79 @@ function buildSheetXml() {
     colsXml + `<sheetData>${sheetRows}</sheetData>` + mergeXml + `</worksheet>`;
 }
 
-const XLSX_CONTENT_TYPES = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
-  `<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">` +
-  `<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>` +
-  `<Default Extension="xml" ContentType="application/xml"/>` +
-  `<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>` +
-  `<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>` +
-  `<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>` +
-  `</Types>`;
+// Druga zakładka (opcjonalna): wynik pre-losowania przydziału do koszyków.
+function buildBasketSheetXml() {
+  const steps = (lastBasketAssignment && lastBasketAssignment.steps) || [];
+  const cells = [];
+  cells.push({ r: 1, c: 2, v: "Koszyk", s: 1 });
+  cells.push({ r: 1, c: 3, v: "Zawodnik", s: 1 });
+  cells.push({ r: 1, c: 4, v: "Klub", s: 1 });
+  const sorted = [...steps].sort((a, b) => a.basket - b.basket || a.name.localeCompare(b.name, "pl"));
+  sorted.forEach((st, i) => {
+    const r = 2 + i;
+    cells.push({ r, c: 2, v: `Koszyk ${st.basket}`, s: 3 });
+    cells.push({ r, c: 3, v: st.name, s: 2 });
+    cells.push({ r, c: 4, v: st.club || "-", s: 3 });
+  });
+  const colsXml = `<cols>` +
+    `<col min="1" max="1" width="2.5" customWidth="1"/>` +
+    `<col min="2" max="2" width="10" customWidth="1"/>` +
+    `<col min="3" max="3" width="28" customWidth="1"/>` +
+    `<col min="4" max="4" width="8" customWidth="1"/></cols>`;
+  const byRow = new Map();
+  for (const cell of cells) {
+    if (!byRow.has(cell.r)) byRow.set(cell.r, []);
+    byRow.get(cell.r).push(cell);
+  }
+  let rows = "";
+  for (const r of [...byRow.keys()].sort((a, b) => a - b)) {
+    let cx = "";
+    for (const cell of byRow.get(r).sort((a, b) => a.c - b.c)) {
+      const ref = `${colLetters1(cell.c)}${r}`;
+      cx += (cell.v === "" || cell.v == null)
+        ? `<c r="${ref}" s="${cell.s}"/>`
+        : `<c r="${ref}" s="${cell.s}" t="inlineStr"><is><t xml:space="preserve">${xmlEsc(cell.v)}</t></is></c>`;
+    }
+    rows += `<row r="${r}">${cx}</row>`;
+  }
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+    `<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">` +
+    colsXml + `<sheetData>${rows}</sheetData></worksheet>`;
+}
+
+function xlsxContentTypes(hasBaskets) {
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+    `<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">` +
+    `<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>` +
+    `<Default Extension="xml" ContentType="application/xml"/>` +
+    `<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>` +
+    `<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>` +
+    (hasBaskets ? `<Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>` : ``) +
+    `<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>` +
+    `</Types>`;
+}
 
 const XLSX_ROOT_RELS = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
   `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` +
   `<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>` +
   `</Relationships>`;
 
-const XLSX_WORKBOOK = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
-  `<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">` +
-  `<sheets><sheet name="Wynik losowania" sheetId="1" r:id="rId1"/></sheets></workbook>`;
+function xlsxWorkbook(hasBaskets) {
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+    `<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">` +
+    `<sheets><sheet name="Wynik losowania" sheetId="1" r:id="rId1"/>` +
+    (hasBaskets ? `<sheet name="Przydział do koszyków" sheetId="2" r:id="rId3"/>` : ``) +
+    `</sheets></workbook>`;
+}
 
-const XLSX_WORKBOOK_RELS = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
-  `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` +
-  `<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>` +
-  `<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>` +
-  `</Relationships>`;
+function xlsxWorkbookRels(hasBaskets) {
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+    `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` +
+    `<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>` +
+    `<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>` +
+    (hasBaskets ? `<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/>` : ``) +
+    `</Relationships>`;
+}
 
 const XLSX_STYLES = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
   `<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">` +
@@ -1300,14 +1390,16 @@ function zipStore(files) {
 
 function exportXLSX() {
   if (!STATE.started) return alert("Najpierw rozpocznij losowanie.");
+  const hasBaskets = !!(lastBasketAssignment && lastBasketAssignment.steps.length);
   const files = [
-    { name: "[Content_Types].xml", data: XLSX_CONTENT_TYPES },
+    { name: "[Content_Types].xml", data: xlsxContentTypes(hasBaskets) },
     { name: "_rels/.rels", data: XLSX_ROOT_RELS },
-    { name: "xl/workbook.xml", data: XLSX_WORKBOOK },
-    { name: "xl/_rels/workbook.xml.rels", data: XLSX_WORKBOOK_RELS },
+    { name: "xl/workbook.xml", data: xlsxWorkbook(hasBaskets) },
+    { name: "xl/_rels/workbook.xml.rels", data: xlsxWorkbookRels(hasBaskets) },
     { name: "xl/styles.xml", data: XLSX_STYLES },
     { name: "xl/worksheets/sheet1.xml", data: buildSheetXml() }
   ];
+  if (hasBaskets) files.push({ name: "xl/worksheets/sheet2.xml", data: buildBasketSheetXml() });
   const blob = new Blob([zipStore(files)], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
   const stamp = new Date().toISOString().slice(0, 19).replaceAll(":", "-");
   downloadBlob(`losowanie_${stamp}.xlsx`, blob);
@@ -1407,6 +1499,7 @@ function saveState() {
     idx: STATE.idx,
     baskets: STATE.baskets,
     steps: STATE.steps,
+    basketAssignment: lastBasketAssignment,
     logHtml: document.getElementById("log")?.innerHTML ?? ""
   };
 
@@ -1445,6 +1538,9 @@ function loadState() {
     basketsOffEl.checked = !ub;
   }
   updateModeUI();
+
+  lastBasketAssignment = payload.basketAssignment || null;
+  renderBasketAssignPanel();
 
   STATE = {
     steps:      payload.steps      || [],
@@ -1492,7 +1588,11 @@ document.addEventListener("DOMContentLoaded", () => {
   });
   document.getElementById("input")?.addEventListener("input", renderValidation);
   document.getElementById("groupCount")?.addEventListener("input", renderValidation);
-  document.getElementById("preAssignBaskets")?.addEventListener("change", renderValidation);
+  document.getElementById("preAssignBaskets")?.addEventListener("change", () => {
+    updateConflictUI();
+    renderValidation();
+  });
+  document.getElementById("conflictInput")?.addEventListener("input", renderValidation);
   updateModeUI();
 
   // Zmiana szerokości okna zmienia szerokość kolumn → przelicz dopasowanie nazw.

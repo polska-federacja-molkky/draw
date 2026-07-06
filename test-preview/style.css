@@ -757,3 +757,36 @@ body.presenting .tableSection h2 { margin: 2px 0 6px; }
 }
 .preAssignRow input { flex: 0 0 auto; }
 .preAssignRow em { color: #8a8f9c; font-style: normal; }
+
+/* Dwa okna wklejania obok siebie (główne + koszyki konfliktowe). */
+.inputRow {
+  display: flex;
+  gap: 14px;
+  align-items: stretch;
+}
+.inputCol {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.inputCol textarea { flex: 1; }
+#conflictCol textarea { border-color: #d8a13a; background: #fffdf5; }
+#conflictCol textarea:focus { border-color: #c0141c; }
+@media (max-width: 900px) {
+  .inputRow { flex-direction: column; }
+}
+
+/* Widoczny wynik pierwszego losowania (przydział do koszyków). */
+.basketAssignPanel {
+  margin-top: 8px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  border: 1px solid #cfd8ea;
+  background: #f4f7fd;
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+.bapTitle { font-weight: 800; color: #1a2448; margin-bottom: 4px; }
+.bapRow b { color: #1a2448; }
+.bapClub { color: #6b6e76; font-size: 11px; }

@@ -6,7 +6,7 @@
   <title>Losowanie grup – Polska Federacja Mölkky</title>
   <link rel="icon" type="image/png" href="PFM_logo.png">
   <link rel="apple-touch-icon" href="PFM_logo.png">
-  <link rel="stylesheet" href="style.css?v=15698864">
+  <link rel="stylesheet" href="style.css?v=b2edab82">
 </head>
 <body>
 
@@ -96,9 +96,19 @@
       </div>
 
       <div class="setupCol setupInput">
-        <label id="inputLabel">Koszyki (do wklejenia z Excela):</label>
-        <textarea id="input" rows="12"></textarea>
+        <div class="inputRow">
+          <div class="inputCol">
+            <label id="inputLabel">Koszyki (do wklejenia z Excela):</label>
+            <textarea id="input" rows="12"></textarea>
+          </div>
+          <div class="inputCol" id="conflictCol" hidden>
+            <label for="conflictInput">Koszyki konfliktowe (do rozlosowania):</label>
+            <textarea id="conflictInput" rows="12" placeholder="KOSZYK 5/6/7&#10;Piotr Pasik&#9;SAO&#10;Robert Baścik&#9;-&#10;…&#10;&#10;KOSZYK 7/8&#10;Filip Kołaczkowski&#9;SAO&#10;…"></textarea>
+            <p class="flatHint">W głównym oknie zostaw puste wiersze w koszykach — tyle, ile osób ma tam trafić z bloków.</p>
+          </div>
+        </div>
         <p id="flatHint" class="flatHint" hidden>Wskazówka: wklej samych zawodników. Liczba rund i placeholderów wynika z podziału graczy na grupy — brakujące miejsca są automatycznie uzupełniane wpisami „Gracz N” w losowych grupach (maks. 1 na grupę).</p>
+        <div id="basketAssignPanel" class="basketAssignPanel" hidden></div>
         <div id="validationPanel" class="validationPanel" aria-live="polite" hidden></div>
       </div>
 
@@ -117,10 +127,10 @@
   </details>
 </div>
 
-<script src="config.js?v=15698864"></script>
-<script src="clubs.js?v=15698864"></script>
-<script src="ranking.js?v=15698864"></script>
-<script src="draw.js?v=15698864"></script>
+<script src="config.js?v=b2edab82"></script>
+<script src="clubs.js?v=b2edab82"></script>
+<script src="ranking.js?v=b2edab82"></script>
+<script src="draw.js?v=b2edab82"></script>
 <script>
   // helper: draw.js reads teamMode via this function
   Object.defineProperty(document, 'teamModeActive', {
