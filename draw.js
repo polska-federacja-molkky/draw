@@ -406,6 +406,123 @@ function renderBasketAssignPanel() {
   panel.hidden = false;
 }
 
+// ======================
+// LOSOWANIE PRZYDZIAŁU DO KOSZYKÓW — klik po kliku, z wizualizacją
+// ======================
+let BASKET = { active: false, steps: [], idx: 0, finalText: "", warnings: [] };
+
+function basketPhaseActive() { return BASKET.active === true; }
+
+// Buduje tabelę wizualizacji: kolumny = koszyki docelowe, wiersze = miejsca.
+function buildBasketVizTable() {
+  const wrap = document.getElementById("tableWrap");
+  if (!wrap) return;
+  const byBasket = {};
+  BASKET.steps.forEach((s, i) => { (byBasket[s.basket] ||= []).push(i); });
+  const baskets = Object.keys(byBasket).map(Number).sort((a, b) => a - b);
+  const maxRows = Math.max(1, ...baskets.map(n => byBasket[n].length));
+
+  const table = document.createElement("table");
+  table.className = "resultTable basketViz";
+  const colgroup = document.createElement("colgroup");
+  const c0 = document.createElement("col"); c0.style.width = "64px"; colgroup.appendChild(c0);
+  baskets.forEach(() => { const c = document.createElement("col"); c.style.width = "auto"; colgroup.appendChild(c); });
+  table.appendChild(colgroup);
+
+  const thead = document.createElement("thead");
+  const trh = document.createElement("tr");
+  const th0 = document.createElement("th"); th0.textContent = "Miejsce"; trh.appendChild(th0);
+  baskets.forEach(n => { const th = document.createElement("th"); th.textContent = `Koszyk ${n}`; trh.appendChild(th); });
+  thead.appendChild(trh); table.appendChild(thead);
+
+  const tbody = document.createElement("tbody");
+  for (let r = 0; r < maxRows; r++) {
+    const tr = document.createElement("tr");
+    const th = document.createElement("th"); th.textContent = r + 1; tr.appendChild(th);
+    baskets.forEach(n => {
+      const td = document.createElement("td");
+      const stepIdx = byBasket[n][r];
+      if (stepIdx == null) { td.className = "vizNA"; }
+      else {
+        td.id = `bviz-${stepIdx}`;
+        td.innerHTML = `<div class="cell empty"><div class="cellName"><span class="firstName">—</span></div></div>`;
+      }
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  }
+  table.appendChild(tbody);
+  wrap.innerHTML = "";
+  wrap.appendChild(table);
+}
+
+function highlightNextBasketCell() {
+  document.querySelectorAll(".basketViz td.nextCell").forEach(td => td.classList.remove("nextCell"));
+  if (BASKET.idx >= BASKET.steps.length) return;
+  const cell = document.getElementById(`bviz-${BASKET.idx}`);
+  if (cell) cell.classList.add("nextCell");
+}
+
+// Start fazy przydziału (po zaznaczonym checkboxie i przejściu walidacji).
+function startBasketAssignment(mainText, conflictText) {
+  const res = resolveBasketAssignment(mainText, conflictText);
+  if (!res) {
+    setStatus("idle", "Wklej bloki KOSZYK a/b/c w drugie okno — albo odznacz checkbox, by losować grupy.");
+    return false;
+  }
+  BASKET = { active: true, steps: res.steps, idx: 0, finalText: res.text, warnings: res.warnings };
+  const setup = document.getElementById("setup"); if (setup) setup.open = false;
+  buildBasketVizTable();
+  highlightNextBasketCell();
+  refreshUI();
+  return true;
+}
+
+function basketNextStep() {
+  if (!BASKET.active) return;
+  if (BASKET.idx >= BASKET.steps.length) { finishBasketAssignment(); return; }
+  const s = BASKET.steps[BASKET.idx];
+  const cell = document.getElementById(`bviz-${BASKET.idx}`);
+  if (cell) {
+    document.querySelectorAll(".basketViz td.justDrawn").forEach(t => t.classList.remove("justDrawn"));
+    cell.innerHTML = cellMarkup(s.name, s.club);
+    fitCell(cell.querySelector(".cell"));
+    void cell.offsetWidth;
+    cell.classList.add("justDrawn");
+  }
+  BASKET.idx++;
+  highlightNextBasketCell();
+  if (BASKET.idx >= BASKET.steps.length) { finishBasketAssignment(); return; }
+  refreshUI();
+}
+
+function finishBasketAssignment() {
+  const inputEl = document.getElementById("input");
+  if (inputEl) inputEl.value = BASKET.finalText;
+  lastBasketAssignment = {
+    steps: BASKET.steps.map(s => ({ basket: s.basket, name: s.name, club: s.club })),
+    at: new Date().toISOString()
+  };
+  const warn = BASKET.warnings.length ? " ⚠ " + BASKET.warnings.join(" ") : "";
+  BASKET = { active: false, steps: [], idx: 0, finalText: "", warnings: [] };
+  const pre = document.getElementById("preAssignBaskets"); if (pre) pre.checked = false;
+  updateConflictUI();
+  renderBasketAssignPanel();
+  const wrap = document.getElementById("tableWrap"); if (wrap) wrap.innerHTML = "";
+  setTablePlaceholder();
+  renderValidation();
+  refreshUI();
+  setStatus("idle", `Przydział do koszyków gotowy. Kliknij „Rozpocznij losowanie", aby losować grupy.${warn}`);
+}
+
+function cancelBasketAssignment() {
+  BASKET = { active: false, steps: [], idx: 0, finalText: "", warnings: [] };
+  const wrap = document.getElementById("tableWrap"); if (wrap) wrap.innerHTML = "";
+  setTablePlaceholder();
+  refreshUI();
+  setStatus("idle", "Przerwano przydział do koszyków.");
+}
+
 function parseInput(text, teamMode, useBaskets = true) {
   const lines = text.split(/\r?\n/);
   const baskets = [];
@@ -868,6 +985,17 @@ function refreshUI() {
   const summaryText  = document.getElementById("setupSummaryText");
   if (!btnPrimary) return;
 
+  // Faza przydziału do koszyków (klik po kliku) — ma pierwszeństwo.
+  if (basketPhaseActive()) {
+    btnPrimary.textContent = "Losuj koszyk dalej";
+    btnPrimary.disabled = false;
+    if (btnRestart) btnRestart.hidden = true;
+    if (btnReset)   btnReset.hidden = false;
+    if (btnExport)  btnExport.hidden = true;
+    setStatus("drawing", `Losowanie przydziału do koszyków: ${BASKET.idx} / ${BASKET.steps.length}`);
+    return;
+  }
+
   const phase = drawPhase();
 
   if (phase === "idle") {
@@ -922,6 +1050,7 @@ function refreshUI() {
 }
 
 function primaryAction() {
+  if (basketPhaseActive()) { basketNextStep(); return; }
   const phase = drawPhase();
   if (phase === "idle")    { startDraw(); return; }
   if (phase === "drawing") { nextStep();  return; }
@@ -958,6 +1087,11 @@ function newDraw() {
 }
 
 function resetDraw() {
+  if (basketPhaseActive()) {
+    if (!confirm("Przerwać losowanie przydziału do koszyków?")) return;
+    cancelBasketAssignment();
+    return;
+  }
   if (drawPhase() === "idle") return;
   const inProgress = drawPhase() === "drawing";
   const msg = inProgress
@@ -986,7 +1120,7 @@ function startDraw() {
   // Zaznaczony checkbox → najpierw rozlosuj pulę w puste miejsca, przepisz dane,
   // odznacz checkbox i NIE startuj jeszcze losowania grup (kolejny klik = grupy).
   const preAssign = document.getElementById("preAssignBaskets");
-  if (preAssign && preAssign.checked && drawPhase() === "idle") {
+  if (preAssign && preAssign.checked && drawPhase() === "idle" && !basketPhaseActive()) {
     const inputEl = document.getElementById("input");
     const conflictEl = document.getElementById("conflictInput");
 
@@ -997,19 +1131,8 @@ function startDraw() {
       return;
     }
 
-    const res = resolveBasketAssignment(inputEl.value, conflictEl?.value || "");
-    if (!res) {
-      setStatus("idle", "Wklej bloki KOSZYK a/b/c w drugie okno — albo odznacz checkbox, by losować grupy.");
-      return;
-    }
-    inputEl.value = res.text;
-    lastBasketAssignment = { steps: res.steps, at: new Date().toISOString() };
-    preAssign.checked = false;
-    updateConflictUI();                 // chowa drugie okno
-    renderBasketAssignPanel();          // widoczny wynik pierwszego losowania
-    renderValidation();
-    const warn = res.warnings.length ? " ⚠ " + res.warnings.join(" ") : "";
-    setStatus("idle", `Przydział do koszyków wylosowany (${res.steps.length} os.). Kliknij „Rozpocznij losowanie", aby losować grupy.${warn}`);
+    // Losowanie przydziału do koszyków — klik po kliku, z wizualizacją.
+    startBasketAssignment(inputEl.value, conflictEl?.value || "");
     return;
   }
 
