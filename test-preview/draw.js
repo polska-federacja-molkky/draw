@@ -452,7 +452,19 @@ function buildBasketVizTable() {
     tbody.appendChild(tr);
   }
   table.appendChild(tbody);
-  wrap.innerHTML = "";
+
+  // Panel pul konfliktowych (kto w którym bloku) — nad tabelą wyniku.
+  let poolsHtml = "";
+  if (BASKET.poolsView && BASKET.poolsView.length) {
+    poolsHtml = `<div class="poolsPanel"><div class="poolsTitle">Bloki konfliktowe — do rozlosowania:</div>`;
+    for (const p of BASKET.poolsView) {
+      const who = p.players.map(pl => escapeHtml(pl.name)).join(", ");
+      poolsHtml += `<div class="poolRow"><b>${escapeHtml(p.label)}</b> <span class="poolCount">(${p.players.length})</span> — ${who}</div>`;
+    }
+    poolsHtml += `</div>`;
+  }
+
+  wrap.innerHTML = poolsHtml;
   wrap.appendChild(table);
 }
 
@@ -470,7 +482,12 @@ function startBasketAssignment(mainText, conflictText) {
     setStatus("idle", "Wklej bloki KOSZYK a/b/c w drugie okno — albo odznacz checkbox, by losować grupy.");
     return false;
   }
-  BASKET = { active: true, steps: res.steps, idx: 0, finalText: res.text, warnings: res.warnings };
+  // Odsłanianie po numerze koszyka (5→6→7→8), niezależnie od kolejności alokacji.
+  const steps = res.steps.slice().sort((a, b) => a.basket - b.basket);
+  const mainByNum = bgParseMainSlots(mainText);
+  const poolsView = bgParseConflictPools(conflictText, mainByNum)
+    .map(p => ({ label: p.label, players: p.players.slice() }));
+  BASKET = { active: true, steps, idx: 0, finalText: res.text, warnings: res.warnings, poolsView };
   const setup = document.getElementById("setup"); if (setup) setup.open = false;
   buildBasketVizTable();
   highlightNextBasketCell();

@@ -798,3 +798,22 @@ body.presenting .tableSection h2 { margin: 2px 0 6px; }
 .basketViz td .cell.preExist { opacity: .45; }
 .basketViz td.vizNA { background: #f4f5f8; }
 .basketViz thead th { font-size: 13px; }
+
+/* Panel pul konfliktowych nad wizualizacją przydziału. */
+.poolsPanel {
+  margin-bottom: 10px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  border: 1px solid #e6d9b8;
+  background: #fffdf5;
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+.poolsTitle { font-weight: 800; color: #1a2448; margin-bottom: 3px; }
+.poolRow b { color: #8a5a00; }
+.poolCount { color: #6b6e76; font-size: 11px; }
+
+/* Wizualizacja przydziału — niższe wiersze niż tabela grup. */
+.basketViz .cell { min-height: 34px; }
+.basketViz th, .basketViz td { padding: 4px 9px; }
+.basketViz .firstName, .basketViz .lastName { font-size: 15px; }
