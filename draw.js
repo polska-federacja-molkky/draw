@@ -206,18 +206,18 @@ function cellMarkup(name, club) {
   const sp = trimmed.indexOf(" ");
   const first = sp > 0 ? trimmed.slice(0, sp) : trimmed;
   const last  = sp > 0 ? trimmed.slice(sp + 1) : "";
-  // Listek 🌱 przy debiutancie — zawsze na górnym wierszu (przy imieniu),
-  // żeby przy długim/łamanym nazwisku nie wylądował na dole.
+  // Listek 🌱 przy debiutancie — osobny element obok nazwy, wyśrodkowany
+  // w pionie (między imieniem a nazwiskiem), nie doklejony do wiersza imienia.
   const info = RANKING_PRESENT ? playerPoints(trimmed) : null;
   const rookie = (info && !info.ranked)
-    ? `<sup class="rookie" title="Debiutant — brak w rankingu">🌱</sup>` : "";
+    ? `<span class="rookieDot" title="Debiutant — brak w rankingu">🌱</span>` : "";
   const firstHtml = escapeHtml(first);
   const lastHtml  = escapeHtml(last);
   const nameBlock = last
-    ? `<span class="firstName">${firstHtml}${rookie}</span><span class="lastName">${lastHtml}</span>`
-    : `<span class="firstName">${firstHtml}${rookie}</span>`;
+    ? `<span class="firstName">${firstHtml}</span><span class="lastName">${lastHtml}</span>`
+    : `<span class="firstName">${firstHtml}</span>`;
   return `<div class="cell filled"><div class="cellName">${nameBlock}</div>` +
-    clubBadge(club) + `</div>`;
+    rookie + clubBadge(club) + `</div>`;
 }
 
 // Auto-dopasowanie: długie imię/nazwisko zmniejsza czcionkę, aż zmieści się
@@ -240,7 +240,18 @@ function fitName(span) {
 }
 function fitCell(cell) {
   if (!cell) return;
-  cell.querySelectorAll(".firstName, .lastName").forEach(fitName);
+  const first = cell.querySelector(".firstName");
+  const last = cell.querySelector(".lastName");
+  fitName(first); fitName(last);
+  // Ujednolicenie: gdy nazwisko musiało się zmniejszyć, imię również — obie
+  // linie do wspólnego (mniejszego) rozmiaru, żeby nie było dysproporcji.
+  if (first && last) {
+    const fs = parseFloat(getComputedStyle(first).fontSize) || NAME_FONT_MAX;
+    const ls = parseFloat(getComputedStyle(last).fontSize) || NAME_FONT_MAX;
+    const m = Math.min(fs, ls);
+    first.style.fontSize = m + "px";
+    last.style.fontSize = m + "px";
+  }
 }
 function fitAllCells() {
   document.querySelectorAll(".resultTable td .cell").forEach(fitCell);
@@ -264,6 +275,281 @@ function onFullscreenChange() {
   const b = document.getElementById("btnFullscreen");
   if (b) b.textContent = on ? "⛶ Zamknij pełny ekran" : "⛶ Pełny ekran";
   fitAllCells();   // układ się zmienił — przelicz dopasowanie nazw
+}
+
+// ======================
+// PRZYDZIAŁ DO KOSZYKÓW (pre-losowanie przy konfliktach punktowych)
+// ======================
+// Gdy nie da się jednoznacznie przypisać do koszyków (remis punktowy):
+//  • główne okno — tradycyjne dwie kolumny (KOSZYK N + gracz/klub), a PUSTE
+//    WIERSZE w koszyku to miejsca do obsadzenia,
+//  • drugie okno (pojawia się po zaznaczeniu checkboxa) — bloki „KOSZYK a/b/c"
+//    z pulą osób do rozlosowania między wskazane koszyki.
+function bgLine(line) {
+  // "Nazwa\tKLUB" (Excel) lub "Nazwa  KLUB" (2+ spacje); bez klubu → "-"
+  const t = line.replace(/\t+$/, "");
+  if (t.includes("\t")) {
+    const p = t.split(/\t+/).map(x => x.trim());
+    return { name: p[0] || "", club: p[1] || "-" };
+  }
+  const p = t.trim().split(/\s{2,}/);
+  if (p.length >= 2) return { name: p[0].trim(), club: p[1].trim() || "-" };
+  return { name: t.trim(), club: "-" };
+}
+function bgHeaderNums(line) { return (line.match(/\d+/g) || []).map(Number); }
+
+// Główne okno → koszyki ze slotami (puste wiersze = puste miejsca).
+function bgParseMainSlots(text) {
+  const lines = text.replace(/[\s﻿]+$/, "").split(/\r?\n/);
+  const mainByNum = {}; let cur = null;
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (/^KOSZYK\b/i.test(line)) {
+      const n = bgHeaderNums(line)[0];
+      cur = mainByNum[n] = { num: n, slots: [] };
+      continue;
+    }
+    if (!cur) continue;                    // śmieci przed pierwszym nagłówkiem
+    if (!line) { cur.slots.push({ empty: true }); continue; }
+    const p = bgLine(raw);
+    cur.slots.push({ name: p.name, club: p.club });
+  }
+  // utnij puste sloty na samym końcu ostatniego koszyka (kosmetyka wklejki)
+  const nums = Object.keys(mainByNum).map(Number);
+  if (nums.length) {
+    const last = mainByNum[Math.max(...nums)];
+    while (last.slots.length && last.slots[last.slots.length - 1].empty) last.slots.pop();
+  }
+  return mainByNum;
+}
+
+// Drugie okno → pule konfliktowe [{label, baskets, players}]; puste wiersze pomijane.
+function bgParseConflictPools(text, mainByNum) {
+  const pools = []; let cur = null;
+  for (const raw of (text || "").split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line) continue;
+    if (/^KOSZYK\b/i.test(line)) {
+      const nums = bgHeaderNums(line);
+      cur = { label: line, baskets: nums, players: [] };
+      pools.push(cur);
+      continue;
+    }
+    if (!cur) continue;
+    const p = bgLine(raw);
+    if (p.name) cur.players.push({ name: p.name, club: p.club });
+  }
+  if (mainByNum) for (const p of pools) p.baskets = p.baskets.filter(n => mainByNum[n]);
+  return pools.filter(p => p.players.length || p.baskets.length);
+}
+
+// Zwraca null, jeśli brak puli; inaczej {text, steps, warnings}.
+// Globalny przydział z ograniczeniami: koszyki obsługiwane przez najmniej bloków
+// (np. tylko-jeden) wypełniamy pierwsze, wspólne koszyki z reszty puli.
+function resolveBasketAssignment(mainText, conflictText) {
+  const mainByNum = bgParseMainSlots(mainText);
+  const pools = bgParseConflictPools(conflictText, mainByNum);
+  if (!pools.length) return null;
+
+  const rnd = createSeededRandom(`${new Date().toISOString()}-${cryptoRandomInt()}`);
+  const emptyOf = n => (mainByNum[n]?.slots || []).filter(s => s.empty).length;
+  const allBaskets = [...new Set(pools.flatMap(p => p.baskets))];
+  const poolsFor = n => pools.filter(p => p.baskets.includes(n));
+  const order = allBaskets.slice().sort((a, b) => poolsFor(a).length - poolsFor(b).length || a - b);
+
+  const steps = [], warnings = [];
+  for (const n of order) {
+    const need = emptyOf(n);
+    let cand = [];
+    for (const p of pools) if (p.baskets.includes(n)) cand.push(...p.players);
+    shuffle(cand, rnd);
+    const chosen = cand.slice(0, need);
+    for (const pl of chosen) {
+      const p = pools.find(pp => pp.players.includes(pl));
+      if (p) p.players.splice(p.players.indexOf(pl), 1);
+    }
+    let fi = 0;
+    for (const s of mainByNum[n].slots) {
+      if (s.empty && fi < chosen.length) {
+        const pl = chosen[fi++]; s.name = pl.name; s.club = pl.club; s.empty = false; s.conflict = true;
+        steps.push({ name: pl.name, club: pl.club, basket: n });
+      }
+    }
+    if (chosen.length < need) warnings.push(`Koszyk ${n}: ${need - chosen.length} pustych miejsc bez kandydata.`);
+  }
+  const leftover = pools.reduce((a, p) => a + p.players.length, 0);
+  if (leftover) warnings.push(`${leftover} os. z bloków konfliktowych bez wolnego miejsca — sprawdź układ.`);
+
+  const nums = Object.keys(mainByNum).map(Number).sort((a, b) => a - b);
+  let out = "";
+  for (const n of nums) {
+    out += `KOSZYK ${n}\n`;
+    for (const s of mainByNum[n].slots) if (!s.empty) out += `${s.name}\t${s.club}\n`;
+  }
+  return { text: out.replace(/\n+$/, "") + "\n", steps, warnings };
+}
+
+// Wynik ostatniego przydziału do koszyków — trafia do eksportu XLSX (osobna zakładka).
+let lastBasketAssignment = null;
+
+// Pokaż/schowaj drugie okno (koszyki konfliktowe) zależnie od checkboxa.
+function updateConflictUI() {
+  const on = document.getElementById("preAssignBaskets")?.checked === true;
+  const col = document.getElementById("conflictCol");
+  if (col) col.hidden = !on;
+}
+
+// Widoczny wynik pierwszego losowania (przydział do koszyków), grupowany per koszyk.
+function renderBasketAssignPanel() {
+  const panel = document.getElementById("basketAssignPanel");
+  if (!panel) return;
+  if (!lastBasketAssignment || !lastBasketAssignment.steps.length) {
+    panel.hidden = true; panel.innerHTML = ""; return;
+  }
+  const byBasket = {};
+  for (const s of lastBasketAssignment.steps) (byBasket[s.basket] ||= []).push(s);
+  let html = `<div class="bapTitle">Wynik losowania przydziału do koszyków (${lastBasketAssignment.steps.length} os.)</div>`;
+  for (const n of Object.keys(byBasket).map(Number).sort((a, b) => a - b)) {
+    const who = byBasket[n].map(s => `${escapeHtml(s.name)}${s.club && s.club !== "-" ? ` <span class="bapClub">${escapeHtml(s.club)}</span>` : ""}`).join(", ");
+    html += `<div class="bapRow"><b>Koszyk ${n}</b> ← ${who}</div>`;
+  }
+  panel.innerHTML = html;
+  panel.hidden = false;
+}
+
+// ======================
+// LOSOWANIE PRZYDZIAŁU DO KOSZYKÓW — klik po kliku, z wizualizacją
+// ======================
+let BASKET = { active: false, steps: [], idx: 0, finalText: "", warnings: [] };
+
+function basketPhaseActive() { return BASKET.active === true; }
+
+// Buduje tabelę wizualizacji: kolumny = koszyki docelowe, wiersze = miejsca.
+function buildBasketVizTable() {
+  const wrap = document.getElementById("tableWrap");
+  if (!wrap) return;
+  const byBasket = {};
+  BASKET.steps.forEach((s, i) => { (byBasket[s.basket] ||= []).push(i); });
+  const baskets = Object.keys(byBasket).map(Number).sort((a, b) => a - b);
+  const maxRows = Math.max(1, ...baskets.map(n => byBasket[n].length));
+
+  const table = document.createElement("table");
+  table.className = "resultTable basketViz";
+  const colgroup = document.createElement("colgroup");
+  const c0 = document.createElement("col"); c0.style.width = "64px"; colgroup.appendChild(c0);
+  baskets.forEach(() => { const c = document.createElement("col"); c.style.width = "auto"; colgroup.appendChild(c); });
+  table.appendChild(colgroup);
+
+  const thead = document.createElement("thead");
+  const trh = document.createElement("tr");
+  const th0 = document.createElement("th"); th0.textContent = "Miejsce"; trh.appendChild(th0);
+  baskets.forEach(n => { const th = document.createElement("th"); th.textContent = `Koszyk ${n}`; trh.appendChild(th); });
+  thead.appendChild(trh); table.appendChild(thead);
+
+  const tbody = document.createElement("tbody");
+  for (let r = 0; r < maxRows; r++) {
+    const tr = document.createElement("tr");
+    const th = document.createElement("th"); th.textContent = r + 1; tr.appendChild(th);
+    baskets.forEach(n => {
+      const td = document.createElement("td");
+      const stepIdx = byBasket[n][r];
+      if (stepIdx == null) { td.className = "vizNA"; }
+      else {
+        td.id = `bviz-${stepIdx}`;
+        td.innerHTML = `<div class="cell empty"><div class="cellName"><span class="firstName">—</span></div></div>`;
+      }
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  }
+  table.appendChild(tbody);
+
+  // Panel pul konfliktowych (kto w którym bloku) — nad tabelą wyniku.
+  let poolsHtml = "";
+  if (BASKET.poolsView && BASKET.poolsView.length) {
+    poolsHtml = `<div class="poolsPanel"><div class="poolsTitle">Bloki konfliktowe — do rozlosowania:</div>`;
+    for (const p of BASKET.poolsView) {
+      const who = p.players.map(pl => escapeHtml(pl.name)).join(", ");
+      poolsHtml += `<div class="poolRow"><b>${escapeHtml(p.label)}</b> <span class="poolCount">(${p.players.length})</span> — ${who}</div>`;
+    }
+    poolsHtml += `</div>`;
+  }
+
+  wrap.innerHTML = poolsHtml;
+  wrap.appendChild(table);
+}
+
+function highlightNextBasketCell() {
+  document.querySelectorAll(".basketViz td.nextCell").forEach(td => td.classList.remove("nextCell"));
+  if (BASKET.idx >= BASKET.steps.length) return;
+  const cell = document.getElementById(`bviz-${BASKET.idx}`);
+  if (cell) cell.classList.add("nextCell");
+}
+
+// Start fazy przydziału (po zaznaczonym checkboxie i przejściu walidacji).
+function startBasketAssignment(mainText, conflictText) {
+  const res = resolveBasketAssignment(mainText, conflictText);
+  if (!res) {
+    setStatus("idle", "Wklej bloki KOSZYK a/b/c w drugie okno — albo odznacz checkbox, by losować grupy.");
+    return false;
+  }
+  // Odsłanianie po numerze koszyka (5→6→7→8), niezależnie od kolejności alokacji.
+  const steps = res.steps.slice().sort((a, b) => a.basket - b.basket);
+  const mainByNum = bgParseMainSlots(mainText);
+  const poolsView = bgParseConflictPools(conflictText, mainByNum)
+    .map(p => ({ label: p.label, players: p.players.slice() }));
+  BASKET = { active: true, steps, idx: 0, finalText: res.text, warnings: res.warnings, poolsView };
+  const setup = document.getElementById("setup"); if (setup) setup.open = false;
+  buildBasketVizTable();
+  highlightNextBasketCell();
+  refreshUI();
+  return true;
+}
+
+function basketNextStep() {
+  if (!BASKET.active) return;
+  if (BASKET.idx >= BASKET.steps.length) { finishBasketAssignment(); return; }
+  const s = BASKET.steps[BASKET.idx];
+  const cell = document.getElementById(`bviz-${BASKET.idx}`);
+  if (cell) {
+    document.querySelectorAll(".basketViz td.justDrawn").forEach(t => t.classList.remove("justDrawn"));
+    cell.innerHTML = cellMarkup(s.name, s.club);
+    fitCell(cell.querySelector(".cell"));
+    void cell.offsetWidth;
+    cell.classList.add("justDrawn");
+  }
+  BASKET.idx++;
+  highlightNextBasketCell();
+  // Po ostatnim odsłonięciu NIE kończymy od razu — zostawiamy chwilę na podgląd
+  // całości; dopiero kolejny klik („Zakończ przydział") finalizuje.
+  refreshUI();
+}
+
+function finishBasketAssignment() {
+  const inputEl = document.getElementById("input");
+  if (inputEl) inputEl.value = BASKET.finalText;
+  lastBasketAssignment = {
+    steps: BASKET.steps.map(s => ({ basket: s.basket, name: s.name, club: s.club })),
+    at: new Date().toISOString()
+  };
+  const warn = BASKET.warnings.length ? " ⚠ " + BASKET.warnings.join(" ") : "";
+  BASKET = { active: false, steps: [], idx: 0, finalText: "", warnings: [] };
+  const pre = document.getElementById("preAssignBaskets"); if (pre) pre.checked = false;
+  updateConflictUI();
+  renderBasketAssignPanel();
+  const wrap = document.getElementById("tableWrap"); if (wrap) wrap.innerHTML = "";
+  setTablePlaceholder();
+  renderValidation();
+  refreshUI();
+  setStatus("idle", `Przydział do koszyków gotowy. Kliknij „Rozpocznij losowanie", aby losować grupy.${warn}`);
+}
+
+function cancelBasketAssignment() {
+  BASKET = { active: false, steps: [], idx: 0, finalText: "", warnings: [] };
+  const wrap = document.getElementById("tableWrap"); if (wrap) wrap.innerHTML = "";
+  setTablePlaceholder();
+  refreshUI();
+  setStatus("idle", "Przerwano przydział do koszyków.");
 }
 
 function parseInput(text, teamMode, useBaskets = true) {
@@ -341,11 +627,55 @@ function plural(n, forms) {
   return forms[2];
 }
 
+// Walidacja w trybie „najpierw przydział do koszyków": główne okno z pustymi
+// wierszami + drugie okno z blokami. Initial check: pula musi się zgadzać
+// z liczbą pustych miejsc (błąd blokujący, żeby nie rozlosować źle).
+function validatePreAssign(mainText, conflictText, groupCount) {
+  const result = { empty: !mainText, counts: null, warnings: [], errors: [] };
+  if (!mainText) return result;
+  const mainByNum = bgParseMainSlots(mainText);
+  const pools = bgParseConflictPools(conflictText, mainByNum);
+  let mainReal = 0, empties = 0;
+  const emptyPer = [];
+  for (const n of Object.keys(mainByNum).map(Number).sort((a, b) => a - b)) {
+    let e = 0;
+    for (const s of mainByNum[n].slots) {
+      if (s.empty) { empties++; e++; }
+      else if (!isPlaceholderLine(s.name) && !isEmptyMarker(s.name)) mainReal++;
+    }
+    if (e) emptyPer.push(`K${n}:${e}`);
+  }
+  const pool = pools.reduce((a, p) => a + p.players.length, 0);
+  const total = mainReal + pool;
+  const parts = [`${total} ${plural(total, ["uczestnik", "uczestnicy", "uczestników"])}`];
+  if (pools.length) parts.push(`${pool} do rozlosowania w ${pools.length} ${plural(pools.length, ["bloku", "blokach", "blokach"])}`);
+  if (empties) parts.push(`${empties} pustych miejsc (${emptyPer.join(", ")})`);
+  result.counts = parts.join(" · ");
+  if (!groupCount || groupCount < 2) result.errors.push("Podaj liczbę grup (min. 2).");
+  if (!pools.length) {
+    result.warnings.push("Wklej bloki KOSZYK a/b/c w drugie okno — albo odznacz checkbox, by losować grupy.");
+  } else if (pool !== empties) {
+    result.errors.push(`Nie zgadza się: ${pool} os. do rozlosowania vs ${empties} pustych miejsc. Wyrównaj przed losowaniem.`);
+  }
+  // koszyki wskazane w blokach, których nie ma w głównym oknie
+  for (const p of pools) {
+    const missing = bgHeaderNums(p.label).filter(n => !mainByNum[n]);
+    if (missing.length) result.warnings.push(`Blok „${p.label}" wskazuje koszyki spoza głównego okna: ${missing.join(", ")}.`);
+  }
+  return result;
+}
+
 function validateInput() {
   const text = document.getElementById("input")?.value.trim() ?? "";
   const teamMode = document.getElementById("modeTeam")?.checked === true;
   const useBaskets = basketsEnabled();
   const groupCount = parseInt(document.getElementById("groupCount")?.value, 10);
+
+  // Tryb pre-losowania przydziału do koszyków — inna, świadoma konfliktów walidacja.
+  if (document.getElementById("preAssignBaskets")?.checked === true) {
+    const conflictText = document.getElementById("conflictInput")?.value ?? "";
+    return validatePreAssign(text, conflictText, groupCount);
+  }
 
   const result = { empty: !text, counts: null, warnings: [], errors: [] };
   if (!text) return result;
@@ -560,16 +890,19 @@ function renderGroupStats() {
   const avgs = groupPoints.map(a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0);
   const maxMed = Math.max(1, ...meds);
 
-  // Stopka: mediana (duża) + średnia + pasek siły (mediana / maks. mediana)
+  // Stopka: mediana (duża) + średnia + segmentowy miernik siły (5 kresek,
+  // wypełnienie wg mediany względem najsilniejszej grupy).
   for (let g = 0; g < G; g++) {
     const cell = document.getElementById(`stat-g${g}`);
     if (!cell) continue;
     if (!groupPoints[g].length) { cell.innerHTML = ""; continue; }
-    const pct = Math.round(meds[g] / maxMed * 100);
+    const filled = Math.max(1, Math.round(meds[g] / maxMed * 5));
+    let meter = `<span class="meter" title="Siła grupy wg mediany">`;
+    for (let i = 0; i < 5; i++) meter += `<span class="seg${i < filled ? " on" : ""}"></span>`;
+    meter += `</span>`;
     cell.innerHTML =
       `<span class="statMed">mediana <b>${Math.round(meds[g])}</b></span>` +
-      `<span class="statAvg">śr. ${Math.round(avgs[g])} pkt</span>` +
-      `<span class="strengthBar" title="Siła grupy wg mediany"><span class="strengthFill" style="width:${pct}%"></span></span>`;
+      `<span class="statAvg">śr. ${Math.round(avgs[g])} pkt</span>` + meter;
   }
   row.hidden = false;
 
@@ -581,38 +914,22 @@ function renderGroupStats() {
   const divG = distinct.indexOf(Math.max(...distinct));
   const leastG = distinct.indexOf(Math.min(...distinct));
   const strongG = meds.indexOf(Math.max(...meds));
+  const weakG = meds.indexOf(Math.min(...meds));
 
-  // Najczęstsza wspólna pierwsza litera (imienia lub nazwiska) w jednej grupie.
-  let ini = { g: -1, letter: "", count: 0, kind: "" };
-  for (const [kind, idx] of [["imion", 0], ["nazwisk", 1]]) {
-    const per = Array.from({ length: G }, () => ({}));
-    for (const s of STATE.steps) {
-      const t = (s.player && s.player.name || "").trim();
-      if (!t || t === "—" || isPlaceholderLine(t) || isEmptyMarker(t)) continue;
-      const parts = t.split(/\s+/);
-      const tok = idx === 0 ? parts[0] : parts[parts.length - 1];
-      const L = (tok[0] || "").toUpperCase();
-      if (!L) continue;
-      const gm = per[s.groupIndex];
-      gm[L] = (gm[L] || 0) + 1;
-      if (gm[L] > ini.count) ini = { g: s.groupIndex, letter: L, count: gm[L], kind };
-    }
-  }
-
+  const clubWord = n => plural(n, ["klub", "kluby", "klubów"]);
   const topClubs = Object.values(clubs)
-    .sort((a, b) => b.total - a.total || a.label.localeCompare(b.label)).slice(0, 4);
+    .sort((a, b) => b.total - a.total || a.label.localeCompare(b.label)).slice(0, 5);
 
-  let facts =
-    `<span class="factChip">🎲 Najbardziej różnorodna: <b>${groupLabel(divG)}</b> · ${distinct[divG]} klubów</span>` +
-    `<span class="factChip">🎯 Najmniej różnorodna: <b>${groupLabel(leastG)}</b> · ${distinct[leastG]} klubów</span>` +
-    `<span class="factChip">💪 Najwyższa mediana: <b>${groupLabel(strongG)}</b> · ${Math.round(meds[strongG])} pkt</span>`;
-  if (ini.count >= 2) {
-    facts += `<span class="factChip">🔤 Najwięcej wspólnych inicjałów: <b>${groupLabel(ini.g)}</b> · ${ini.count}× „${escapeHtml(ini.letter)}" (${ini.kind})</span>`;
-  }
+  const items = [
+    `<b>Najbardziej różnorodna</b>: ${groupLabel(divG)} · ${distinct[divG]} ${clubWord(distinct[divG])}`,
+    `<b>Najmniej różnorodna</b>: ${groupLabel(leastG)} · ${distinct[leastG]} ${clubWord(distinct[leastG])}`,
+    `<b>Najwyższa mediana</b>: ${groupLabel(strongG)} · ${Math.round(meds[strongG])} pkt`,
+    `<b>Najniższa mediana</b>: ${groupLabel(weakG)} · ${Math.round(meds[weakG])} pkt`,
+  ];
   if (topClubs.length) {
-    const list = topClubs.map(c => `${escapeHtml(c.label)} ×${c.total}`).join(" · ");
-    facts += `<span class="factChip">🏛️ Najliczniej: <b>${list}</b></span>`;
+    items.push(`<b>Najliczniej reprezentowane</b>: ${topClubs.map(c => `${escapeHtml(c.label)} ×${c.total}`).join(" · ")}`);
   }
+  const facts = items.map(t => `<li>${t}</li>`).join("");
 
   const sorted = Object.values(clubs).sort((a, b) => b.total - a.total || a.label.localeCompare(b.label));
   let matrix = "";
@@ -622,7 +939,7 @@ function renderGroupStats() {
     head += `<th>Σ</th></tr>`;
     let body = "";
     for (const c of sorted) {
-      body += `<tr><th title="${escapeHtml(c.name)}">${escapeHtml(c.label)}</th>`;
+      body += `<tr><th class="clubRow"><span class="clubAbbr">${escapeHtml(c.label)}</span> <span class="clubFull">${escapeHtml(c.name)}</span></th>`;
       for (let g = 0; g < G; g++) {
         const n = c.counts[g];
         const cls = n === 0 ? "zero" : (n >= 2 ? "hot" : "");
@@ -631,10 +948,10 @@ function renderGroupStats() {
       body += `<th>${c.total}</th></tr>`;
     }
     matrix =
-      `<details class="clubMatrix"><summary>Rozkład klubów po grupach (${sorted.length} ${plural(sorted.length, ["klub", "kluby", "klubów"])})</summary>` +
+      `<details class="clubMatrix" open><summary>Rozkład klubów po grupach (${sorted.length} ${plural(sorted.length, ["klub", "kluby", "klubów"])})</summary>` +
       `<div class="matrixWrap"><table class="matrixTable"><thead>${head}</thead><tbody>${body}</tbody></table></div></details>`;
   }
-  box.innerHTML = `<div class="summaryFacts">${facts}</div>${matrix}`;
+  box.innerHTML = `<ul class="factList">${facts}</ul>${matrix}`;
   box.hidden = false;
 }
 
@@ -692,11 +1009,24 @@ function refreshUI() {
   const btnPrimary = document.getElementById("btnPrimary");
   const btnRestart = document.getElementById("btnRestart");
   const btnReset   = document.getElementById("btnReset");
-  const btnCopy    = document.getElementById("btnCopy");
   const btnExport  = document.getElementById("btnExport");
   const setup        = document.getElementById("setup");
   const summaryText  = document.getElementById("setupSummaryText");
   if (!btnPrimary) return;
+
+  // Faza przydziału do koszyków (klik po kliku) — ma pierwszeństwo.
+  if (basketPhaseActive()) {
+    const done = BASKET.idx >= BASKET.steps.length;
+    btnPrimary.textContent = done ? "Zakończ przydział →" : "Losuj koszyk dalej";
+    btnPrimary.disabled = false;
+    if (btnRestart) btnRestart.hidden = true;
+    if (btnReset)   btnReset.hidden = false;
+    if (btnExport)  btnExport.hidden = true;
+    setStatus("drawing", done
+      ? `Przydział do koszyków gotowy (${BASKET.steps.length}/${BASKET.steps.length}) — kliknij, aby przejść do losowania grup.`
+      : `Losowanie przydziału do koszyków: ${BASKET.idx} / ${BASKET.steps.length}`);
+    return;
+  }
 
   const phase = drawPhase();
 
@@ -705,7 +1035,6 @@ function refreshUI() {
     btnPrimary.disabled = false;
     if (btnRestart) btnRestart.hidden = true;
     if (btnReset)   btnReset.hidden = true;
-    if (btnCopy)    btnCopy.hidden = true;
     if (btnExport)  btnExport.hidden = true;
     setTablePlaceholder();
     setStatus("idle", "Gotowe do losowania");
@@ -715,7 +1044,6 @@ function refreshUI() {
     btnPrimary.disabled = false;
     if (btnRestart) btnRestart.hidden = true;
     if (btnReset)   btnReset.hidden = false;
-    if (btnCopy)    btnCopy.hidden = false;
     if (btnExport)  btnExport.hidden = false;
     setStatus(
       "drawing",
@@ -728,8 +1056,7 @@ function refreshUI() {
     btnPrimary.textContent = "Losowanie zakończone ✓";
     btnPrimary.disabled = true;
     if (btnRestart) btnRestart.hidden = false;
-    if (btnReset)   btnReset.hidden = false;
-    if (btnCopy)    btnCopy.hidden = false;
+    if (btnReset)   btnReset.hidden = true;   // po zakończeniu tożsamy z „Nowe losowanie"
     if (btnExport)  btnExport.hidden = false;
     const cnt = countRealAssigned();
     setStatus(
@@ -755,6 +1082,7 @@ function refreshUI() {
 }
 
 function primaryAction() {
+  if (basketPhaseActive()) { basketNextStep(); return; }
   const phase = drawPhase();
   if (phase === "idle")    { startDraw(); return; }
   if (phase === "drawing") { nextStep();  return; }
@@ -783,12 +1111,19 @@ function newDraw() {
   if (wrap) wrap.innerHTML = "";
   const log = document.getElementById("log");
   if (log) log.innerHTML = "";
+  lastBasketAssignment = null;
+  renderBasketAssignPanel();
   localStorage.removeItem(STORAGE_KEY);
   refreshUI();
   document.getElementById("input")?.focus();
 }
 
 function resetDraw() {
+  if (basketPhaseActive()) {
+    if (!confirm("Przerwać losowanie przydziału do koszyków?")) return;
+    cancelBasketAssignment();
+    return;
+  }
   if (drawPhase() === "idle") return;
   const inProgress = drawPhase() === "drawing";
   const msg = inProgress
@@ -813,6 +1148,26 @@ function addLog(text) {
 // START / RESET
 // ======================
 function startDraw() {
+  // FAZA WSTĘPNA: rozlosowanie przydziału do koszyków (konflikty punktowe).
+  // Zaznaczony checkbox → najpierw rozlosuj pulę w puste miejsca, przepisz dane,
+  // odznacz checkbox i NIE startuj jeszcze losowania grup (kolejny klik = grupy).
+  const preAssign = document.getElementById("preAssignBaskets");
+  if (preAssign && preAssign.checked && drawPhase() === "idle" && !basketPhaseActive()) {
+    const inputEl = document.getElementById("input");
+    const conflictEl = document.getElementById("conflictInput");
+
+    // Initial check (błędy blokują, np. pula ≠ puste miejsca)
+    const pv = renderValidation();
+    if (pv && pv.errors.length) {
+      document.getElementById("validationPanel")?.scrollIntoView({ block: "nearest" });
+      return;
+    }
+
+    // Losowanie przydziału do koszyków — klik po kliku, z wizualizacją.
+    startBasketAssignment(inputEl.value, conflictEl?.value || "");
+    return;
+  }
+
   const text = document.getElementById("input").value.trim();
   const groupCount = parseInt(document.getElementById("groupCount").value, 10);
   const teamMode = document.getElementById("modeTeam")?.checked === true;
@@ -1044,29 +1399,79 @@ function buildSheetXml() {
     colsXml + `<sheetData>${sheetRows}</sheetData>` + mergeXml + `</worksheet>`;
 }
 
-const XLSX_CONTENT_TYPES = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
-  `<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">` +
-  `<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>` +
-  `<Default Extension="xml" ContentType="application/xml"/>` +
-  `<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>` +
-  `<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>` +
-  `<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>` +
-  `</Types>`;
+// Druga zakładka (opcjonalna): wynik pre-losowania przydziału do koszyków.
+function buildBasketSheetXml() {
+  const steps = (lastBasketAssignment && lastBasketAssignment.steps) || [];
+  const cells = [];
+  cells.push({ r: 1, c: 2, v: "Koszyk", s: 1 });
+  cells.push({ r: 1, c: 3, v: "Zawodnik", s: 1 });
+  cells.push({ r: 1, c: 4, v: "Klub", s: 1 });
+  const sorted = [...steps].sort((a, b) => a.basket - b.basket || a.name.localeCompare(b.name, "pl"));
+  sorted.forEach((st, i) => {
+    const r = 2 + i;
+    cells.push({ r, c: 2, v: `Koszyk ${st.basket}`, s: 3 });
+    cells.push({ r, c: 3, v: st.name, s: 2 });
+    cells.push({ r, c: 4, v: st.club || "-", s: 3 });
+  });
+  const colsXml = `<cols>` +
+    `<col min="1" max="1" width="2.5" customWidth="1"/>` +
+    `<col min="2" max="2" width="10" customWidth="1"/>` +
+    `<col min="3" max="3" width="28" customWidth="1"/>` +
+    `<col min="4" max="4" width="8" customWidth="1"/></cols>`;
+  const byRow = new Map();
+  for (const cell of cells) {
+    if (!byRow.has(cell.r)) byRow.set(cell.r, []);
+    byRow.get(cell.r).push(cell);
+  }
+  let rows = "";
+  for (const r of [...byRow.keys()].sort((a, b) => a - b)) {
+    let cx = "";
+    for (const cell of byRow.get(r).sort((a, b) => a.c - b.c)) {
+      const ref = `${colLetters1(cell.c)}${r}`;
+      cx += (cell.v === "" || cell.v == null)
+        ? `<c r="${ref}" s="${cell.s}"/>`
+        : `<c r="${ref}" s="${cell.s}" t="inlineStr"><is><t xml:space="preserve">${xmlEsc(cell.v)}</t></is></c>`;
+    }
+    rows += `<row r="${r}">${cx}</row>`;
+  }
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+    `<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">` +
+    colsXml + `<sheetData>${rows}</sheetData></worksheet>`;
+}
+
+function xlsxContentTypes(hasBaskets) {
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+    `<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">` +
+    `<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>` +
+    `<Default Extension="xml" ContentType="application/xml"/>` +
+    `<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>` +
+    `<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>` +
+    (hasBaskets ? `<Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>` : ``) +
+    `<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>` +
+    `</Types>`;
+}
 
 const XLSX_ROOT_RELS = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
   `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` +
   `<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>` +
   `</Relationships>`;
 
-const XLSX_WORKBOOK = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
-  `<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">` +
-  `<sheets><sheet name="Wynik losowania" sheetId="1" r:id="rId1"/></sheets></workbook>`;
+function xlsxWorkbook(hasBaskets) {
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+    `<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">` +
+    `<sheets><sheet name="Wynik losowania" sheetId="1" r:id="rId1"/>` +
+    (hasBaskets ? `<sheet name="Przydział do koszyków" sheetId="2" r:id="rId3"/>` : ``) +
+    `</sheets></workbook>`;
+}
 
-const XLSX_WORKBOOK_RELS = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
-  `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` +
-  `<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>` +
-  `<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>` +
-  `</Relationships>`;
+function xlsxWorkbookRels(hasBaskets) {
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+    `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` +
+    `<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>` +
+    `<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>` +
+    (hasBaskets ? `<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/>` : ``) +
+    `</Relationships>`;
+}
 
 const XLSX_STYLES = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
   `<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">` +
@@ -1140,14 +1545,16 @@ function zipStore(files) {
 
 function exportXLSX() {
   if (!STATE.started) return alert("Najpierw rozpocznij losowanie.");
+  const hasBaskets = !!(lastBasketAssignment && lastBasketAssignment.steps.length);
   const files = [
-    { name: "[Content_Types].xml", data: XLSX_CONTENT_TYPES },
+    { name: "[Content_Types].xml", data: xlsxContentTypes(hasBaskets) },
     { name: "_rels/.rels", data: XLSX_ROOT_RELS },
-    { name: "xl/workbook.xml", data: XLSX_WORKBOOK },
-    { name: "xl/_rels/workbook.xml.rels", data: XLSX_WORKBOOK_RELS },
+    { name: "xl/workbook.xml", data: xlsxWorkbook(hasBaskets) },
+    { name: "xl/_rels/workbook.xml.rels", data: xlsxWorkbookRels(hasBaskets) },
     { name: "xl/styles.xml", data: XLSX_STYLES },
     { name: "xl/worksheets/sheet1.xml", data: buildSheetXml() }
   ];
+  if (hasBaskets) files.push({ name: "xl/worksheets/sheet2.xml", data: buildBasketSheetXml() });
   const blob = new Blob([zipStore(files)], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
   const stamp = new Date().toISOString().slice(0, 19).replaceAll(":", "-");
   downloadBlob(`losowanie_${stamp}.xlsx`, blob);
@@ -1247,6 +1654,7 @@ function saveState() {
     idx: STATE.idx,
     baskets: STATE.baskets,
     steps: STATE.steps,
+    basketAssignment: lastBasketAssignment,
     logHtml: document.getElementById("log")?.innerHTML ?? ""
   };
 
@@ -1285,6 +1693,9 @@ function loadState() {
     basketsOffEl.checked = !ub;
   }
   updateModeUI();
+
+  lastBasketAssignment = payload.basketAssignment || null;
+  renderBasketAssignPanel();
 
   STATE = {
     steps:      payload.steps      || [],
@@ -1332,6 +1743,11 @@ document.addEventListener("DOMContentLoaded", () => {
   });
   document.getElementById("input")?.addEventListener("input", renderValidation);
   document.getElementById("groupCount")?.addEventListener("input", renderValidation);
+  document.getElementById("preAssignBaskets")?.addEventListener("change", () => {
+    updateConflictUI();
+    renderValidation();
+  });
+  document.getElementById("conflictInput")?.addEventListener("input", renderValidation);
   updateModeUI();
 
   // Zmiana szerokości okna zmienia szerokość kolumn → przelicz dopasowanie nazw.

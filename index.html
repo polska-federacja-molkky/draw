@@ -3,10 +3,15 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <!-- Bez cache HTML: przeglądarka rewaliduje stronę, więc nowe wdrożenia
+       (z ?v=<sha> na skryptach) wchodzą bez ręcznego twardego odświeżania. -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <title>Losowanie grup – Polska Federacja Mölkky</title>
   <link rel="icon" type="image/png" href="PFM_logo.png">
   <link rel="apple-touch-icon" href="PFM_logo.png">
-  <link rel="stylesheet" href="style.css?v=c882486e">
+  <link rel="stylesheet" href="style.css?v=78a2d37d">
 </head>
 <body>
 
@@ -34,7 +39,6 @@
       <button id="btnFullscreen" class="btnGhost" onclick="toggleFullscreen()">⛶ Pełny ekran</button>
       <button id="btnRestart" class="btnGhost" onclick="newDrawConfirm()" hidden>Nowe losowanie</button>
       <button id="btnReset" class="btnGhost btnDanger" onclick="resetDraw()" hidden>Resetuj</button>
-      <button id="btnCopy" class="btnGhost" onclick="copyResultsToClipboard()" hidden>Kopiuj do Excela</button>
       <button id="btnExport" class="btnGhost" onclick="exportXLSX()" hidden>Pobierz Excel (.xlsx)</button>
     </div>
   </div>
@@ -82,6 +86,11 @@
           </label>
         </div>
 
+        <label class="preAssignRow" title="Gdy remis punktowy: puste miejsca w koszykach + blok „KOSZYK a/b/c" do rozlosowania">
+          <input type="checkbox" id="preAssignBaskets">
+          <span>Najpierw rozlosuj przydział do koszyków <em>(konflikty punktowe)</em></span>
+        </label>
+
         <details class="advanced">
           <summary>Opcje dodatkowe</summary>
           <div class="buttons secondary">
@@ -92,9 +101,19 @@
       </div>
 
       <div class="setupCol setupInput">
-        <label id="inputLabel">Koszyki (do wklejenia z Excela):</label>
-        <textarea id="input" rows="12"></textarea>
+        <div class="inputRow">
+          <div class="inputCol">
+            <label id="inputLabel">Koszyki (do wklejenia z Excela):</label>
+            <textarea id="input" rows="12"></textarea>
+          </div>
+          <div class="inputCol" id="conflictCol" hidden>
+            <label for="conflictInput">Koszyki konfliktowe (do rozlosowania):</label>
+            <textarea id="conflictInput" rows="12" placeholder="KOSZYK 5/6/7&#10;Piotr Pasik&#9;SAO&#10;Robert Baścik&#9;-&#10;…&#10;&#10;KOSZYK 7/8&#10;Filip Kołaczkowski&#9;SAO&#10;…"></textarea>
+            <p class="flatHint">W głównym oknie zostaw puste wiersze w koszykach — tyle, ile osób ma tam trafić z bloków.</p>
+          </div>
+        </div>
         <p id="flatHint" class="flatHint" hidden>Wskazówka: wklej samych zawodników. Liczba rund i placeholderów wynika z podziału graczy na grupy — brakujące miejsca są automatycznie uzupełniane wpisami „Gracz N” w losowych grupach (maks. 1 na grupę).</p>
+        <div id="basketAssignPanel" class="basketAssignPanel" hidden></div>
         <div id="validationPanel" class="validationPanel" aria-live="polite" hidden></div>
       </div>
 
@@ -113,10 +132,10 @@
   </details>
 </div>
 
-<script src="config.js?v=c882486e"></script>
-<script src="clubs.js?v=c882486e"></script>
-<script src="ranking.js?v=c882486e"></script>
-<script src="draw.js?v=c882486e"></script>
+<script src="config.js?v=78a2d37d"></script>
+<script src="clubs.js?v=78a2d37d"></script>
+<script src="ranking.js?v=78a2d37d"></script>
+<script src="draw.js?v=78a2d37d"></script>
 <script>
   // helper: draw.js reads teamMode via this function
   Object.defineProperty(document, 'teamModeActive', {
