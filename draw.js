@@ -240,7 +240,18 @@ function fitName(span) {
 }
 function fitCell(cell) {
   if (!cell) return;
-  cell.querySelectorAll(".firstName, .lastName").forEach(fitName);
+  const first = cell.querySelector(".firstName");
+  const last = cell.querySelector(".lastName");
+  fitName(first); fitName(last);
+  // Ujednolicenie: gdy nazwisko musiało się zmniejszyć, imię również — obie
+  // linie do wspólnego (mniejszego) rozmiaru, żeby nie było dysproporcji.
+  if (first && last) {
+    const fs = parseFloat(getComputedStyle(first).fontSize) || NAME_FONT_MAX;
+    const ls = parseFloat(getComputedStyle(last).fontSize) || NAME_FONT_MAX;
+    const m = Math.min(fs, ls);
+    first.style.fontSize = m + "px";
+    last.style.fontSize = m + "px";
+  }
 }
 function fitAllCells() {
   document.querySelectorAll(".resultTable td .cell").forEach(fitCell);
@@ -509,7 +520,8 @@ function basketNextStep() {
   }
   BASKET.idx++;
   highlightNextBasketCell();
-  if (BASKET.idx >= BASKET.steps.length) { finishBasketAssignment(); return; }
+  // Po ostatnim odsłonięciu NIE kończymy od razu — zostawiamy chwilę na podgląd
+  // całości; dopiero kolejny klik („Zakończ przydział") finalizuje.
   refreshUI();
 }
 
@@ -1004,12 +1016,15 @@ function refreshUI() {
 
   // Faza przydziału do koszyków (klik po kliku) — ma pierwszeństwo.
   if (basketPhaseActive()) {
-    btnPrimary.textContent = "Losuj koszyk dalej";
+    const done = BASKET.idx >= BASKET.steps.length;
+    btnPrimary.textContent = done ? "Zakończ przydział →" : "Losuj koszyk dalej";
     btnPrimary.disabled = false;
     if (btnRestart) btnRestart.hidden = true;
     if (btnReset)   btnReset.hidden = false;
     if (btnExport)  btnExport.hidden = true;
-    setStatus("drawing", `Losowanie przydziału do koszyków: ${BASKET.idx} / ${BASKET.steps.length}`);
+    setStatus("drawing", done
+      ? `Przydział do koszyków gotowy (${BASKET.steps.length}/${BASKET.steps.length}) — kliknij, aby przejść do losowania grup.`
+      : `Losowanie przydziału do koszyków: ${BASKET.idx} / ${BASKET.steps.length}`);
     return;
   }
 
