@@ -43,5 +43,5 @@ const CLUBS = {
   LEM: { name: "Lemolki Chojnice" },
   MAT: { name: "Mat4" },
   BPK: { name: "Bez Pudła Kępno" },
-  JEL: { name: "TKKF Jelenia Góra Mölkky Team" },  // herb: logos/JEL.png (do wgrania)
+  JEL: { name: "TKKF Jelenia Góra Mölkky Team", logo: "logos/JEL.png" },
 };
