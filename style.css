@@ -796,7 +796,11 @@ body.presenting .tableSection h2 { margin: 2px 0 6px; }
 
 /* Wizualizacja losowania przydziału do koszyków (klik po kliku). */
 .basketViz td .cell.preExist { opacity: .45; }
-.basketViz td.vizNA { background: #f4f5f8; }
+/* Sloty, które nie będą wypełniane (koszyk potrzebuje mniej osób) — wyraźnie
+   wyszarzone ukośną kreskówką. Wyższa specyficzność, by wygrać z tłem parzystych wierszy. */
+.resultTable.basketViz td.vizNA {
+  background: repeating-linear-gradient(45deg, #e9ebf0, #e9ebf0 6px, #dfe2ea 6px, #dfe2ea 12px);
+}
 .basketViz thead th { font-size: 13px; }
 
 /* Panel pul konfliktowych nad wizualizacją przydziału. */
