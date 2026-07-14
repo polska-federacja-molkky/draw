@@ -389,16 +389,15 @@ function resolveBasketAssignment(mainText, conflictText) {
   for (const p of order) if (augment(p, new Array(slots.length).fill(false))) placed[p] = true;
 
   // Odsłanianie i pakowanie do slotów: BLOK po BLOKU (kolejność z drugiego okna),
-  // a w obrębie bloku ROUND-ROBIN rosnąco po koszyku: runda po rundzie, w każdej rundzie
-  // po jednej osobie do każdego koszyka od najniższego. Osobę wstawiamy w NAJWCZEŚNIEJSZE
-  // wolne miejsce koszyka przydzielonego przez globalne dopasowanie. Dzięki temu:
-  //  • blok 2-koszykowy „4/5" (2 os.) = jedna runda [4, 5] → osoba do 4 ZAWSZE przed osobą
-  //    do 5 (niższy koszyk pierwszy),
-  //  • blok 3+ koszykowy „5/6/7" = rundy 5,6,7,5,6,7… → koszyki 6 i 7 PRZEPLATAJĄ się,
-  //    więc widać, że kto nie trafił do 5 idzie losowo do 6 ALBO 7 (nie „pełne 6, potem 7").
-  // Osoby w obrębie koszyka są potasowane (bez kolejności listowej). Globalne dopasowanie
-  // (Kuhn) nadal gwarantuje wykonalność; tu tylko układamy przypisanych w sloty i ustalamy
-  // kolejność animacji.
+  // a w obrębie bloku KOSZYK po KOSZYKU rosnąco — najpierw cały niższy koszyk, potem
+  // wyższy. Kolejność OSÓB w obrębie koszyka jest LOSOWA (tasujemy przed stabilnym
+  // sortem po numerze koszyka), żeby koszyk zapełniał się jak losowanie, a nie w
+  // kolejności z listy. Osobę wstawiamy w NAJWCZEŚNIEJSZE wolne miejsce jej koszyka.
+  // Dzięki temu blok „5/6/7": najpierw losuje się cały koszyk 5, potem z pozostałych
+  // cały 6, na końcu reszta do 7. Blok „4/5" (2 os.): osoba do 4 zawsze przed osobą
+  // do 5 (niższy koszyk pierwszy). Który koszyk dostaje kogo — rozstrzyga globalne
+  // dopasowanie Kuhna (uczciwe, w proporcji do pojemności); tu tylko układamy przypisanych
+  // w sloty i ustalamy kolejność animacji.
   const playerBasket = new Array(players.length).fill(-1);
   for (let si = 0; si < slots.length; si++)
     if (slotMatch[si] !== -1) playerBasket[slotMatch[si]] = slots[si].basket;
@@ -410,25 +409,13 @@ function resolveBasketAssignment(mainText, conflictText) {
   const byPool = pools.map(() => []);
   players.forEach((pl, i) => { if (playerBasket[i] !== -1) byPool[pl.poolIdx].push(i); });
   for (const group of byPool) {
-    shuffle(group, rnd);                    // losowa kolejność osób (w obrębie koszyka)
-    const perBasket = new Map();            // koszyk → kolejka osób (potasowana)
+    shuffle(group, rnd);                                       // losowa kolejność osób...
+    group.sort((a, b) => playerBasket[a] - playerBasket[b]);   // ...stabilnie rosnąco po koszyku
     for (const i of group) {
-      if (!perBasket.has(playerBasket[i])) perBasket.set(playerBasket[i], []);
-      perBasket.get(playerBasket[i]).push(i);
-    }
-    const basketsAsc = [...perBasket.keys()].sort((a, b) => a - b);
-    const pos = new Map(basketsAsc.map(b => [b, 0]));
-    let remaining = group.length;
-    while (remaining > 0) {                  // round-robin: runda = po 1 os. na koszyk, rosnąco
-      for (const b of basketsAsc) {
-        const q = perBasket.get(b), k = pos.get(b);
-        if (k >= q.length) continue;
-        pos.set(b, k + 1); remaining--;
-        const pl = players[q[k]];
-        const s = freeByBasket[b].shift();   // najwcześniejsze wolne miejsce
-        s.name = pl.name; s.club = pl.club; s.empty = false; s.conflict = true;
-        steps.push({ name: pl.name, club: pl.club, basket: b });
-      }
+      const pl = players[i], basket = playerBasket[i];
+      const s = freeByBasket[basket].shift();                  // najwcześniejsze wolne miejsce
+      s.name = pl.name; s.club = pl.club; s.empty = false; s.conflict = true;
+      steps.push({ name: pl.name, club: pl.club, basket });
     }
   }
   const unplaced = players.filter((_, i) => !placed[i]);
