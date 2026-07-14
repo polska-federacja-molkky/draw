@@ -362,7 +362,9 @@ function resolveBasketAssignment(mainText, conflictText) {
   for (const n of Object.keys(mainByNum).map(Number).sort((a, b) => a - b))
     for (const s of mainByNum[n].slots) if (s.empty) slots.push({ basket: n, ref: s });
   const players = [];
-  for (const p of pools) for (const pl of p.players) players.push({ name: pl.name, club: pl.club, baskets: p.baskets });
+  pools.forEach((p, poolIdx) => {
+    for (const pl of p.players) players.push({ name: pl.name, club: pl.club, baskets: p.baskets, poolIdx });
+  });
 
   // Sąsiedztwo gracz→sloty (tasowane dla losowości); kolejność graczy też tasowana.
   const adj = players.map(pl => {
@@ -386,14 +388,32 @@ function resolveBasketAssignment(mainText, conflictText) {
   const placed = new Array(players.length).fill(false);
   for (const p of order) if (augment(p, new Array(slots.length).fill(false))) placed[p] = true;
 
-  // Wpisz dopasowanych do slotów.
+  // Odsłanianie i pakowanie do slotów: BLOK po BLOKU (kolejność z drugiego okna),
+  // a w obrębie bloku ROSNĄCO po numerze koszyka. Osobę z bloku wstawiamy w
+  // NAJWCZEŚNIEJSZE wolne miejsce jej koszyka. Dzięki temu blok „4/5" (2 os.) pokazuje
+  // jedną w koszyku 4 i OD RAZU drugą w pierwszym wolnym miejscu koszyka 5 — zanim
+  // większy blok (np. 5/6/7) zajmie resztę piątki. Dla bloków 3+ koszykowych (5/6/7)
+  // to, kto trafia do 5 vs 6 vs 7, dalej rozstrzyga losowe dopasowanie.
+  // Globalne dopasowanie (Kuhn) nadal gwarantuje wykonalność; tu tylko układamy
+  // przypisanych w sloty i ustalamy kolejność animacji.
+  const playerBasket = new Array(players.length).fill(-1);
+  for (let si = 0; si < slots.length; si++)
+    if (slotMatch[si] !== -1) playerBasket[slotMatch[si]] = slots[si].basket;
+
+  const freeByBasket = {};                 // koszyk → lista wolnych slotów w kolejności
+  for (const sl of slots) (freeByBasket[sl.basket] ||= []).push(sl.ref);
+
   const steps = [], warnings = [];
-  for (let si = 0; si < slots.length; si++) {
-    const p = slotMatch[si];
-    if (p === -1) continue;
-    const pl = players[p], s = slots[si].ref;
-    s.name = pl.name; s.club = pl.club; s.empty = false; s.conflict = true;
-    steps.push({ name: pl.name, club: pl.club, basket: slots[si].basket });
+  const byPool = pools.map(() => []);
+  players.forEach((pl, i) => { if (playerBasket[i] !== -1) byPool[pl.poolIdx].push(i); });
+  for (const group of byPool) {
+    group.sort((a, b) => playerBasket[a] - playerBasket[b]);   // w bloku: rosnąco po koszyku
+    for (const i of group) {
+      const pl = players[i], basket = playerBasket[i];
+      const s = freeByBasket[basket].shift();                  // najwcześniejsze wolne miejsce
+      s.name = pl.name; s.club = pl.club; s.empty = false; s.conflict = true;
+      steps.push({ name: pl.name, club: pl.club, basket });
+    }
   }
   const unplaced = players.filter((_, i) => !placed[i]);
   if (unplaced.length) warnings.push(`${unplaced.length} os. bez miejsca (układ niewykonalny): ${unplaced.slice(0, 6).map(p => p.name).join(", ")}${unplaced.length > 6 ? " …" : ""}.`);
@@ -516,8 +536,9 @@ function startBasketAssignment(mainText, conflictText) {
     setStatus("idle", "Wklej bloki KOSZYK a/b/c w drugie okno — albo odznacz checkbox, by losować grupy.");
     return false;
   }
-  // Odsłanianie po numerze koszyka (5→6→7→8), niezależnie od kolejności alokacji.
-  const steps = res.steps.slice().sort((a, b) => a.basket - b.basket);
+  // Odsłanianie BLOK po BLOKU (kolejność jak w drugim oknie), a w obrębie bloku
+  // rosnąco po numerze koszyka — kolejność ustalona już w resolveBasketAssignment.
+  const steps = res.steps.slice();
   const mainByNum = bgParseMainSlots(mainText);
   const poolsView = bgParseConflictPools(conflictText, mainByNum)
     .map(p => ({ label: p.label, players: p.players.slice() }));
