@@ -63,7 +63,9 @@ body {
 .actionBar .statusBar {
   flex: 1 1 220px;
   margin: 0;
-  min-height: 36px;
+  /* Stała wysokość na 2 linie (główny + podtytuł), żeby pasek nie rósł przy
+     przejściu z „idle" (1 linia) na „w toku" (2 linie) i nie przesuwał przycisku. */
+  min-height: 52px;
   justify-content: center;
 }
 .actionButtons {
@@ -542,8 +544,9 @@ summary:focus-visible {
   flex-direction: column;
   gap: 2px;
   min-width: 0;
-  flex: 1 1 auto;
+  flex: 0 1 auto;   /* szerokość do treści; listek zaraz obok, herb wypycha spacer */
 }
+.cellGap { flex: 1 1 auto; min-width: 4px; }
 
 /* Układ trójwierszowy: imię / nazwisko / klub.
    Pionowo mamy dużo miejsca, więc czcionka jest mocno podbita pod czytelność. */
@@ -619,7 +622,7 @@ img.clubLogo {
   flex: 0 0 auto;
   font-size: 13px;
   line-height: 1;
-  margin-left: 2px;
+  margin: 0 5px 0 4px;   /* tuż przy nazwie */
 }
 
 /* Stopka: statystyki rankingowe pod grupami (średnia + mediana punktów). */
@@ -803,6 +806,16 @@ body.presenting .tableSection h2 { margin: 2px 0 6px; }
 }
 .basketViz thead th { font-size: 13px; }
 
+/* Tabela przydziału: nie na całą szerokość — do treści (stałe kolumny) i wyśrodkowana.
+   inline-table + text-align:center na wrapperze centruje przy width:auto. */
+.basketCenter { text-align: center; overflow-x: auto; }
+.resultTable.basketViz {
+  width: auto;
+  max-width: 100%;
+  display: inline-table;
+  text-align: left;
+}
+
 /* Panel pul konfliktowych nad wizualizacją przydziału. */
 .poolsPanel {
   margin-bottom: 10px;
@@ -817,7 +830,8 @@ body.presenting .tableSection h2 { margin: 2px 0 6px; }
 .poolRow b { color: #8a5a00; }
 .poolCount { color: #6b6e76; font-size: 11px; }
 
-/* Wizualizacja przydziału — niższe wiersze niż tabela grup. */
-.basketViz .cell { min-height: 34px; }
+/* Wizualizacja przydziału — jednolita, stała wysokość wierszy (żeby nie rosły
+   przy odsłanianiu kolejnych osób). */
+.basketViz .cell { min-height: 44px; }
 .basketViz th, .basketViz td { padding: 4px 9px; }
 .basketViz .firstName, .basketViz .lastName { font-size: 15px; }
