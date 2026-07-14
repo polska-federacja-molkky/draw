@@ -1,4 +1,18 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "model": "claude-opus-4-8"
+  "model": "claude-opus-4-8",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ \"$CLAUDE_CODE_REMOTE\" = \"true\" ]; then python3 -m pip install -q openpyxl Pillow >/dev/null 2>&1; npm i --silent playwright-core >/dev/null 2>&1; fi; echo '{\"hookSpecificOutput\":{\"hookEventName\":\"SessionStart\",\"additionalContext\":\"Repo PFM draw. Przeczytaj CLAUDE.md. Inwariant: main i test-preview roznia sie TYLKO config.js (groupStats). Narzedzia openpyxl/Pillow/playwright instaluja sie w tle.\"}}'",
+            "async": true,
+            "statusMessage": "PFM: narzędzia + kontekst (CLAUDE.md)"
+          }
+        ]
+      }
+    ]
+  }
 }
