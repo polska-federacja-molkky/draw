@@ -206,8 +206,8 @@ function cellMarkup(name, club) {
   const sp = trimmed.indexOf(" ");
   const first = sp > 0 ? trimmed.slice(0, sp) : trimmed;
   const last  = sp > 0 ? trimmed.slice(sp + 1) : "";
-  // Listek 🌱 przy debiutancie — osobny element obok nazwy, wyśrodkowany
-  // w pionie (między imieniem a nazwiskiem), nie doklejony do wiersza imienia.
+  // Listek 🌱 przy debiutancie — tuż przy nazwie (nie przy herbie); spacer
+  // wypycha herb do prawej krawędzi.
   const info = RANKING_PRESENT ? playerPoints(trimmed) : null;
   const rookie = (info && !info.ranked)
     ? `<span class="rookieDot" title="Debiutant — brak w rankingu">🌱</span>` : "";
@@ -217,7 +217,7 @@ function cellMarkup(name, club) {
     ? `<span class="firstName">${firstHtml}</span><span class="lastName">${lastHtml}</span>`
     : `<span class="firstName">${firstHtml}</span>`;
   return `<div class="cell filled"><div class="cellName">${nameBlock}</div>` +
-    rookie + clubBadge(club) + `</div>`;
+    rookie + `<span class="cellGap"></span>` + clubBadge(club) + `</div>`;
 }
 
 // Auto-dopasowanie: długie imię/nazwisko zmniejsza czcionkę, aż zmieści się
@@ -437,7 +437,7 @@ function buildBasketVizTable() {
   table.className = "resultTable basketViz";
   const colgroup = document.createElement("colgroup");
   const c0 = document.createElement("col"); c0.style.width = "64px"; colgroup.appendChild(c0);
-  baskets.forEach(() => { const c = document.createElement("col"); c.style.width = "auto"; colgroup.appendChild(c); });
+  baskets.forEach(() => { const c = document.createElement("col"); c.style.width = "200px"; colgroup.appendChild(c); });
   table.appendChild(colgroup);
 
   const thead = document.createElement("thead");
@@ -476,7 +476,10 @@ function buildBasketVizTable() {
   }
 
   wrap.innerHTML = poolsHtml;
-  wrap.appendChild(table);
+  const center = document.createElement("div");
+  center.className = "basketCenter";
+  center.appendChild(table);
+  wrap.appendChild(center);
 }
 
 function highlightNextBasketCell() {
@@ -1091,7 +1094,7 @@ function primaryAction() {
 
 function newDrawConfirm() {
   if (drawPhase() !== "done") return;
-  if (!confirm("Rozpocząć nowe losowanie na tych samych danych? Obecny wynik zostanie zastąpiony nowym.")) return;
+  if (!confirm("Nowe losowanie na AKTUALNYCH danych z panelu Dane i ustawienia? Jeśli chcesz inne dane — najpierw rozwiń panel i je zmień. Obecny wynik zostanie zastąpiony.")) return;
   startDraw();
 }
 
