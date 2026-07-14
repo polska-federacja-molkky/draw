@@ -299,6 +299,8 @@ function bgLine(line) {
 function bgHeaderNums(line) { return (line.match(/\d+/g) || []).map(Number); }
 
 // Główne okno → koszyki ze slotami (puste wiersze = puste miejsca).
+// Uwaga: ostatni koszyk powinien kończyć się wpisami (X / Gracz N), nie samymi
+// pustymi wierszami — końcowe puste ostatniego koszyka są przycinane jako kosmetyka.
 function bgParseMainSlots(text) {
   const lines = text.replace(/[\s﻿]+$/, "").split(/\r?\n/);
   const mainByNum = {}; let cur = null;
@@ -314,7 +316,6 @@ function bgParseMainSlots(text) {
     const p = bgLine(raw);
     cur.slots.push({ name: p.name, club: p.club });
   }
-  // utnij puste sloty na samym końcu ostatniego koszyka (kosmetyka wklejki)
   const nums = Object.keys(mainByNum).map(Number);
   if (nums.length) {
     const last = mainByNum[Math.max(...nums)];
@@ -344,41 +345,60 @@ function bgParseConflictPools(text, mainByNum) {
 }
 
 // Zwraca null, jeśli brak puli; inaczej {text, steps, warnings}.
-// Globalny przydział z ograniczeniami: koszyki obsługiwane przez najmniej bloków
-// (np. tylko-jeden) wypełniamy pierwsze, wspólne koszyki z reszty puli.
+// Przydział jako DOPASOWANIE DWUDZIELNE (algorytm Kuhna): każda osoba z bloku
+// musi trafić do pustego miejsca w JEDNYM z jej koszyków. Kluczowe, gdy koszyk
+// jest w kilku blokach (np. K4 w „3/4" i „4/5") — zachłanne wypełnianie
+// potrafiło zostawić kogoś bez miejsca. Matching gwarantuje obsadzenie
+// wszystkich (o ile układ jest wykonalny) i losuje przez tasowanie sąsiedztw.
 function resolveBasketAssignment(mainText, conflictText) {
   const mainByNum = bgParseMainSlots(mainText);
   const pools = bgParseConflictPools(conflictText, mainByNum);
   if (!pools.length) return null;
 
   const rnd = createSeededRandom(`${new Date().toISOString()}-${cryptoRandomInt()}`);
-  const emptyOf = n => (mainByNum[n]?.slots || []).filter(s => s.empty).length;
-  const allBaskets = [...new Set(pools.flatMap(p => p.baskets))];
-  const poolsFor = n => pools.filter(p => p.baskets.includes(n));
-  const order = allBaskets.slice().sort((a, b) => poolsFor(a).length - poolsFor(b).length || a - b);
 
-  const steps = [], warnings = [];
-  for (const n of order) {
-    const need = emptyOf(n);
-    let cand = [];
-    for (const p of pools) if (p.baskets.includes(n)) cand.push(...p.players);
-    shuffle(cand, rnd);
-    const chosen = cand.slice(0, need);
-    for (const pl of chosen) {
-      const p = pools.find(pp => pp.players.includes(pl));
-      if (p) p.players.splice(p.players.indexOf(pl), 1);
+  // Sloty (puste miejsca) po numerze koszyka + gracze z dozwolonymi koszykami.
+  const slots = [];
+  for (const n of Object.keys(mainByNum).map(Number).sort((a, b) => a - b))
+    for (const s of mainByNum[n].slots) if (s.empty) slots.push({ basket: n, ref: s });
+  const players = [];
+  for (const p of pools) for (const pl of p.players) players.push({ name: pl.name, club: pl.club, baskets: p.baskets });
+
+  // Sąsiedztwo gracz→sloty (tasowane dla losowości); kolejność graczy też tasowana.
+  const adj = players.map(pl => {
+    const a = [];
+    for (let si = 0; si < slots.length; si++) if (pl.baskets.includes(slots[si].basket)) a.push(si);
+    shuffle(a, rnd);
+    return a;
+  });
+  const order = players.map((_, i) => i);
+  shuffle(order, rnd);
+
+  const slotMatch = new Array(slots.length).fill(-1);   // slot → gracz
+  function augment(p, seen) {
+    for (const si of adj[p]) {
+      if (seen[si]) continue;
+      seen[si] = true;
+      if (slotMatch[si] === -1 || augment(slotMatch[si], seen)) { slotMatch[si] = p; return true; }
     }
-    let fi = 0;
-    for (const s of mainByNum[n].slots) {
-      if (s.empty && fi < chosen.length) {
-        const pl = chosen[fi++]; s.name = pl.name; s.club = pl.club; s.empty = false; s.conflict = true;
-        steps.push({ name: pl.name, club: pl.club, basket: n });
-      }
-    }
-    if (chosen.length < need) warnings.push(`Koszyk ${n}: ${need - chosen.length} pustych miejsc bez kandydata.`);
+    return false;
   }
-  const leftover = pools.reduce((a, p) => a + p.players.length, 0);
-  if (leftover) warnings.push(`${leftover} os. z bloków konfliktowych bez wolnego miejsca — sprawdź układ.`);
+  const placed = new Array(players.length).fill(false);
+  for (const p of order) if (augment(p, new Array(slots.length).fill(false))) placed[p] = true;
+
+  // Wpisz dopasowanych do slotów.
+  const steps = [], warnings = [];
+  for (let si = 0; si < slots.length; si++) {
+    const p = slotMatch[si];
+    if (p === -1) continue;
+    const pl = players[p], s = slots[si].ref;
+    s.name = pl.name; s.club = pl.club; s.empty = false; s.conflict = true;
+    steps.push({ name: pl.name, club: pl.club, basket: slots[si].basket });
+  }
+  const unplaced = players.filter((_, i) => !placed[i]);
+  if (unplaced.length) warnings.push(`${unplaced.length} os. bez miejsca (układ niewykonalny): ${unplaced.slice(0, 6).map(p => p.name).join(", ")}${unplaced.length > 6 ? " …" : ""}.`);
+  const openSlots = slotMatch.filter(m => m === -1).length;
+  if (openSlots) warnings.push(`${openSlots} pustych miejsc bez kandydata.`);
 
   const nums = Object.keys(mainByNum).map(Number).sort((a, b) => a - b);
   let out = "";
