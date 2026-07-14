@@ -389,11 +389,12 @@ function resolveBasketAssignment(mainText, conflictText) {
   for (const p of order) if (augment(p, new Array(slots.length).fill(false))) placed[p] = true;
 
   // Odsłanianie i pakowanie do slotów: BLOK po BLOKU (kolejność z drugiego okna),
-  // a w obrębie bloku ROSNĄCO po numerze koszyka. Osobę z bloku wstawiamy w
-  // NAJWCZEŚNIEJSZE wolne miejsce jej koszyka. Dzięki temu blok „4/5" (2 os.) pokazuje
-  // jedną w koszyku 4 i OD RAZU drugą w pierwszym wolnym miejscu koszyka 5 — zanim
-  // większy blok (np. 5/6/7) zajmie resztę piątki. Dla bloków 3+ koszykowych (5/6/7)
-  // to, kto trafia do 5 vs 6 vs 7, dalej rozstrzyga losowe dopasowanie.
+  // a w obrębie bloku w LOSOWEJ kolejności losowania. Osobę wstawiamy w NAJWCZEŚNIEJSZE
+  // wolne miejsce koszyka, który przydzieliło jej globalne dopasowanie. Tasowanie w
+  // obrębie bloku jest kluczowe dla bloków 3+ koszykowych (np. 5/6/7): koszyki się
+  // PRZEPLATAJĄ przy odsłanianiu, więc widać, że ktoś kto nie trafił do 5 idzie
+  // losowo do 6 ALBO 7 — a nie „najpierw pełne 6, potem 7" (co sugerowało determinizm).
+  // Blok 2-koszykowy „4/5" (2 os.) i tak pokazuje jedną osobę w koszyku 4 i jedną w 5.
   // Globalne dopasowanie (Kuhn) nadal gwarantuje wykonalność; tu tylko układamy
   // przypisanych w sloty i ustalamy kolejność animacji.
   const playerBasket = new Array(players.length).fill(-1);
@@ -407,7 +408,7 @@ function resolveBasketAssignment(mainText, conflictText) {
   const byPool = pools.map(() => []);
   players.forEach((pl, i) => { if (playerBasket[i] !== -1) byPool[pl.poolIdx].push(i); });
   for (const group of byPool) {
-    group.sort((a, b) => playerBasket[a] - playerBasket[b]);   // w bloku: rosnąco po koszyku
+    shuffle(group, rnd);   // losowa kolejność w bloku → przy 3+ koszykach baskety się przeplatają
     for (const i of group) {
       const pl = players[i], basket = playerBasket[i];
       const s = freeByBasket[basket].shift();                  // najwcześniejsze wolne miejsce
