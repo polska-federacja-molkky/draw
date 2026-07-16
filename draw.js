@@ -224,10 +224,11 @@ function cellMarkup(name, club) {
 // w jednej linii — dzięki temu każdy wpis mieści się w 2 rzędach, a krótkie
 // nazwy zostają duże. Herb po prawej zabiera szerokość, więc bez tego
 // najdłuższe nazwiska łamią się na 3 linie.
-const NAME_FONT_MAX = 18, NAME_FONT_MIN = 11;
+// 21px od transpozycji tabeli (koszyki w kolumnach → kolumny szersze, jest zapas).
+const NAME_FONT_MAX = 21, NAME_FONT_MIN = 11;
 function fitName(span) {
   if (!span || !span.textContent) return;
-  span.style.fontSize = "";                 // reset do domyślnych 18px
+  span.style.fontSize = "";                 // reset do domyślnych 21px (CSS)
   // Łamanie tylko na myślniku/spacji (CSS). Dopóki tekst wystaje poza szerokość
   // komórki, zmniejszaj czcionkę: pojedyncze słowa trafiają do jednej linii,
   // człony z myślnikiem łamią się i mieszczą bez najeżdżania na herb.
