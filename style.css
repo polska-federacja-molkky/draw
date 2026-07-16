@@ -523,6 +523,14 @@ summary:focus-visible {
   font-weight: 600;
 }
 
+/* Tabela wyniku po transpozycji (grupy w wierszach): etykiety „Grupa N"
+   potrzebują szerszej kolumny niż numerki koszyków/miejsc. */
+.resultTable.transposed tbody th {
+  width: 92px;
+  min-width: 92px;
+  max-width: 92px;
+}
+
 .resultTable tbody tr:nth-child(even) td {
   background: #fafbfd;
 }
@@ -625,21 +633,15 @@ img.clubLogo {
   margin: 0 5px 0 4px;   /* tuż przy nazwie */
 }
 
-/* Stopka: statystyki rankingowe pod grupami (średnia + mediana punktów). */
-.resultTable tfoot .statRow th,
-.resultTable tfoot .statRow td {
+/* Kolumna „Punkty": statystyki rankingowe per grupa (mediana + średnia).
+   Po transpozycji to ostatnia kolumna tabeli (wypełnia się po zakończeniu).
+   Selektor z tr td, by wygrać remisem specyficzności z zebrą wierszy. */
+.resultTable tbody tr td.statCol {
   background: #f4f6fb;
-  border-top: 2px solid #1a2448;
+  border-left: 2px solid #1a2448;
   text-align: center;
   vertical-align: middle;
   padding: 6px 8px;
-}
-.resultTable tfoot .statRow th {
-  font-size: 11px;
-  font-weight: 700;
-  color: #6b6e76;
-  text-transform: uppercase;
-  letter-spacing: .3px;
 }
 /* .statCell zostaje table-cell (bez flex!), spany układamy blokowo. */
 .statAvg, .statMed { display: block; line-height: 1.2; }
