@@ -819,22 +819,31 @@ let prevPhase = null;
 // ======================
 // TABLE BUILD (fixed widths via colgroup)
 // ======================
+// TRANSPOZYCJA (2026-07): grupy w WIERSZACH, koszyki w KOLUMNACH. Grup bywa
+// znacznie więcej niż koszyków (np. 14 grup × 6 koszyków) — przy grupach w
+// kolumnach tabela była za ciasna na szerokość (zoom → ścisk). Komórki
+// zachowują id `cell-b{basket}-g{group}`, więc odsłanianie/restore bez zmian.
 function buildTable(baskets, groupCount, useBaskets = true) {
   const wrap = document.getElementById("tableWrap");
 
   const table = document.createElement("table");
-  table.className = "resultTable";
+  table.className = "resultTable transposed";
 
   const colgroup = document.createElement("colgroup");
 
-  const colKoszyk = document.createElement("col");
-  colKoszyk.style.width = "64px";
-  colgroup.appendChild(colKoszyk);
+  const colGrupa = document.createElement("col");
+  colGrupa.style.width = "92px";
+  colgroup.appendChild(colGrupa);
 
-  for (let i = 0; i < groupCount; i++) {
+  for (let i = 0; i < baskets.length; i++) {
     const col = document.createElement("col");
     col.style.width = "auto";
     colgroup.appendChild(col);
+  }
+  if (SHOW_GROUP_STATS) {
+    const colStat = document.createElement("col");
+    colStat.style.width = "150px";
+    colgroup.appendChild(colStat);
   }
 
   table.appendChild(colgroup);
@@ -843,13 +852,20 @@ function buildTable(baskets, groupCount, useBaskets = true) {
   const trHead = document.createElement("tr");
 
   const th0 = document.createElement("th");
-  th0.textContent = useBaskets ? "Koszyk" : "Lp.";
+  th0.textContent = "Grupa";
   trHead.appendChild(th0);
 
-  for (let g = 0; g < groupCount; g++) {
+  baskets.forEach(b => {
     const th = document.createElement("th");
-    th.textContent = groupLabel(g);
+    th.textContent = useBaskets ? b.label : `Runda ${b.label}`;
     trHead.appendChild(th);
+  });
+
+  // Kolumna statystyk per grupa (tylko dev/test) — wypełnia się po zakończeniu.
+  if (SHOW_GROUP_STATS) {
+    const thStat = document.createElement("th");
+    thStat.textContent = "Punkty";
+    trHead.appendChild(thStat);
   }
 
   thead.appendChild(trHead);
@@ -857,43 +873,31 @@ function buildTable(baskets, groupCount, useBaskets = true) {
 
   const tbody = document.createElement("tbody");
 
-  baskets.forEach((b, bIdx) => {
+  for (let g = 0; g < groupCount; g++) {
     const tr = document.createElement("tr");
 
     const th = document.createElement("th");
-    th.textContent = b.label;
+    th.textContent = groupLabel(g);
     tr.appendChild(th);
 
-    for (let g = 0; g < groupCount; g++) {
+    baskets.forEach((b, bIdx) => {
       const td = document.createElement("td");
       td.id = `cell-b${bIdx}-g${g}`;
       td.innerHTML = `<div class="cell"><span class="firstName">—</span></div>`;
       tr.appendChild(td);
+    });
+
+    if (SHOW_GROUP_STATS) {
+      const td = document.createElement("td");
+      td.id = `stat-g${g}`;
+      td.className = "statCell statCol";
+      tr.appendChild(td);
     }
 
     tbody.appendChild(tr);
-  });
+  }
 
   table.appendChild(tbody);
-
-  // Stopka ze statystykami rankingowymi per grupa (tylko gdy statystyki włączone).
-  if (SHOW_GROUP_STATS) {
-    const tfoot = document.createElement("tfoot");
-    const trStat = document.createElement("tr");
-    trStat.className = "statRow";
-    trStat.hidden = true;
-    const thStat = document.createElement("th");
-    thStat.textContent = "Punkty";
-    trStat.appendChild(thStat);
-    for (let g = 0; g < groupCount; g++) {
-      const td = document.createElement("td");
-      td.id = `stat-g${g}`;
-      td.className = "statCell";
-      trStat.appendChild(td);
-    }
-    tfoot.appendChild(trStat);
-    table.appendChild(tfoot);
-  }
 
   wrap.innerHTML = "";
   wrap.appendChild(table);
@@ -909,8 +913,8 @@ function buildTable(baskets, groupCount, useBaskets = true) {
 // Placeholdery („gracz N") i „X" pomijamy; brak w rankingu = 0 pkt.
 function renderGroupStats() {
   if (!SHOW_GROUP_STATS) return;
-  const row = document.querySelector(".resultTable .statRow");
-  if (!row || !STATE.started) return;
+  // Po transpozycji statystyki siedzą w kolumnie „Punkty" (komórki stat-g{g}).
+  if (!document.getElementById("stat-g0") || !STATE.started) return;
   const G = STATE.groupCount;
 
   const groupPoints = Array.from({ length: G }, () => []);
@@ -937,8 +941,8 @@ function renderGroupStats() {
   const avgs = groupPoints.map(a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0);
   const maxMed = Math.max(1, ...meds);
 
-  // Stopka: mediana (duża) + średnia + segmentowy miernik siły (5 kresek,
-  // wypełnienie wg mediany względem najsilniejszej grupy).
+  // Kolumna „Punkty": mediana (duża) + średnia + segmentowy miernik siły
+  // (5 kresek, wypełnienie wg mediany względem najsilniejszej grupy).
   for (let g = 0; g < G; g++) {
     const cell = document.getElementById(`stat-g${g}`);
     if (!cell) continue;
@@ -951,7 +955,6 @@ function renderGroupStats() {
       `<span class="statMed">mediana <b>${Math.round(meds[g])}</b></span>` +
       `<span class="statAvg">śr. ${Math.round(avgs[g])} pkt</span>` + meter;
   }
-  row.hidden = false;
 
   // Ciekawostki + macierz klubów pod tabelą
   const box = document.getElementById("drawSummary");
@@ -1139,6 +1142,10 @@ function primaryAction() {
 function newDrawConfirm() {
   if (drawPhase() !== "done") return;
   if (!confirm("Nowe losowanie na AKTUALNYCH danych z panelu Dane i ustawienia? Jeśli chcesz inne dane — najpierw rozwiń panel i je zmień. Obecny wynik zostanie zastąpiony.")) return;
+  // Reset stanu PRZED startem: bez tego faza była „done" i startDraw() pomijał
+  // gałąź przydziału do koszyków (wymaga fazy „idle") — zaznaczony checkbox
+  // „losujemy przydział do koszyków" był ignorowany i od razu szły grupy.
+  newDraw();
   startDraw();
 }
 
