@@ -560,7 +560,7 @@ summary:focus-visible {
    Pionowo mamy dużo miejsca, więc czcionka jest mocno podbita pod czytelność. */
 .cell .firstName {
   font-weight: 500;
-  font-size: 18px;
+  font-size: 21px;
   word-break: normal;
   overflow-wrap: normal;   /* bez łamania w środku słowa; tylko myślnik/spacja */
   color: #1a2448;
@@ -568,7 +568,7 @@ summary:focus-visible {
 
 .cell .lastName {
   font-weight: 700;
-  font-size: 18px;
+  font-size: 21px;
   word-break: normal;
   overflow-wrap: normal;
   color: #1a2448;
